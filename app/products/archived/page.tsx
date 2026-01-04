@@ -1,25 +1,37 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CompositionEvent, CSSProperties } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseClient";
+import { ZONE_KEYWORDS, parseSearchTokens, tokensMatchText } from "@/lib/search";
+
+type Zone = {
+  id: string;
+  name: string;
+};
 
 type ArchivedProduct = {
   id: string;
   name: string;
   manufacturer: string | null;
-  zone_name?: string | null;
-  zone?: string | null;
-  stock?: number | null;
-  archived_at?: string | null;
-  archived_reason?: string | null;
+  zone_id: string | null;
+};
+
+type InventoryRow = {
+  product_id: string;
+  stock: number;
 };
 
 type AuthState = "checking" | "authed" | "blocked" | "error";
+
 type DataState = "idle" | "loading" | "ready" | "error";
+
+const ZONE_PARAM_MAP = new Map(
+  ZONE_KEYWORDS.map((keyword) => [keyword.toLowerCase(), keyword])
+);
 
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
@@ -41,6 +53,20 @@ const headerStyle: CSSProperties = {
   gap: "8px",
 };
 
+const headerRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "12px",
+  flexWrap: "wrap",
+};
+
+const titleStyle: CSSProperties = {
+  fontSize: "20px",
+  fontWeight: 700,
+  margin: 0,
+};
+
 const backLinkStyle: CSSProperties = {
   minHeight: "44px",
   padding: "0 14px",
@@ -57,10 +83,49 @@ const backLinkStyle: CSSProperties = {
   width: "fit-content",
 };
 
-const titleStyle: CSSProperties = {
-  fontSize: "20px",
-  fontWeight: 700,
-  margin: 0,
+const logoutButtonStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 12px",
+  borderRadius: "999px",
+  border: "1px solid #D6D2CC",
+  background: "#FFFFFF",
+  color: "#2E2A27",
+  fontSize: "13px",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const chipRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "8px",
+};
+
+const chipBaseStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 14px",
+  borderRadius: "999px",
+  border: "1px solid #D6D2CC",
+  background: "#FFFFFF",
+  color: "#2E2A27",
+  fontSize: "14px",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const chipActiveStyle: CSSProperties = {
+  background: "#2E2A27",
+  color: "#FFFFFF",
+  border: "1px solid #2E2A27",
+};
+
+const inputStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 12px",
+  borderRadius: "10px",
+  border: "1px solid #D6D2CC",
+  fontSize: "15px",
+  background: "#FFFFFF",
 };
 
 const cardStyle: CSSProperties = {
@@ -105,10 +170,10 @@ const cardRowRightStyle: CSSProperties = {
   flexShrink: 0,
 };
 
-const cardMetaStyle: CSSProperties = {
-  fontSize: "12px",
-  color: "#7B736C",
-  margin: 0,
+const cardActionRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "8px",
 };
 
 const helperTextStyle: CSSProperties = {
@@ -144,7 +209,18 @@ const restoreButtonStyle: CSSProperties = {
   fontSize: "14px",
   fontWeight: 600,
   cursor: "pointer",
-  alignSelf: "flex-start",
+};
+
+const deleteButtonStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 14px",
+  borderRadius: "10px",
+  border: "1px solid #B42318",
+  background: "#B42318",
+  color: "#FFFFFF",
+  fontSize: "14px",
+  fontWeight: 600,
+  cursor: "pointer",
 };
 
 const modalOverlayStyle: CSSProperties = {
@@ -177,6 +253,15 @@ const modalTitleStyle: CSSProperties = {
   color: "#2E2A27",
 };
 
+const modalInputStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 12px",
+  borderRadius: "10px",
+  border: "1px solid #D6D2CC",
+  fontSize: "16px",
+  background: "#FFFFFF",
+};
+
 const modalButtonRowStyle: CSSProperties = {
   display: "flex",
   gap: "8px",
@@ -200,6 +285,14 @@ const modalConfirmStyle: CSSProperties = {
   flex: 1,
 };
 
+function normalizeZoneParam(zoneParam: string | null): string | null {
+  if (!zoneParam) {
+    return null;
+  }
+  const match = ZONE_PARAM_MAP.get(zoneParam.toLowerCase());
+  return match ?? null;
+}
+
 function SkeletonList() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -214,28 +307,45 @@ function SkeletonList() {
   );
 }
 
-function formatTimestamp(raw: string) {
-  const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) {
-    return raw;
-  }
-  return date.toLocaleString("ko-KR");
-}
-
 export default function ArchivedProductsPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryString = searchParams.toString();
   const backHref = queryString ? `/products?${queryString}` : "/products";
 
+  const selectedZone = normalizeZoneParam(searchParams.get("zone"));
+  const query = searchParams.get("q") ?? "";
+
   const [authState, setAuthState] = useState<AuthState>("checking");
   const [dataState, setDataState] = useState<DataState>("idle");
-  const [archivedProducts, setArchivedProducts] = useState<ArchivedProduct[]>([]);
+  const [profileRole, setProfileRole] = useState<string | null>(null);
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [products, setProducts] = useState<ArchivedProduct[]>([]);
+  const [stockByProductId, setStockByProductId] = useState<Map<string, number>>(
+    new Map()
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
-  const [restoreTarget, setRestoreTarget] = useState<ArchivedProduct | null>(null);
+  const [draftQuery, setDraftQuery] = useState(query);
+  const [isComposing, setIsComposing] = useState(false);
+  const isComposingRef = useRef(false);
+  const pendingUpdatesRef = useRef<{ zone?: string | null; q?: string } | null>(
+    null
+  );
+  const [restoreTarget, setRestoreTarget] = useState<ArchivedProduct | null>(
+    null
+  );
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ArchivedProduct | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    setDraftQuery(query);
+  }, [query]);
 
   useEffect(() => {
     let cancelled = false;
@@ -243,6 +353,7 @@ export default function ArchivedProductsPage() {
     const loadAuth = async () => {
       setAuthState("checking");
       setErrorMessage(null);
+      setProfileRole(null);
 
       const { user, error: sessionError } = await getSessionUser();
       if (cancelled) {
@@ -287,6 +398,18 @@ export default function ArchivedProductsPage() {
         return;
       }
 
+      const { data: roleData, error: roleError } = await supabase
+        .from("users_profile")
+        .select("role")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (roleError) {
+        console.error("Failed to fetch user role", roleError);
+      } else {
+        setProfileRole(roleData?.role ?? null);
+      }
+
       setAuthState("authed");
     };
 
@@ -297,42 +420,94 @@ export default function ArchivedProductsPage() {
     };
   }, [router]);
 
+  const loadArchived = useCallback(async () => {
+    setDataState("loading");
+    setErrorMessage(null);
+
+    const [zonesResult, productsResult, inventoryResult] = await Promise.all([
+      supabase.from("zones").select("id, name").order("sort_order"),
+      supabase
+        .from("products")
+        .select("id, name, manufacturer, zone_id")
+        .eq("active", false)
+        .order("name"),
+      supabase.from("inventory").select("product_id, stock"),
+    ]);
+
+    if (zonesResult.error || productsResult.error || inventoryResult.error) {
+      if (zonesResult.error) {
+        console.error("Failed to fetch zones", zonesResult.error);
+      }
+      if (productsResult.error) {
+        console.error("Failed to fetch archived products", productsResult.error);
+      }
+      if (inventoryResult.error) {
+        console.error("Failed to fetch inventory", inventoryResult.error);
+      }
+      setErrorMessage("목록을 불러오지 못했어요.");
+      setDataState("error");
+      return;
+    }
+
+    const stockMap = new Map<string, number>();
+    (inventoryResult.data as InventoryRow[] | null | undefined)?.forEach(
+      (row) => {
+        stockMap.set(row.product_id, row.stock);
+      }
+    );
+
+    setZones(zonesResult.data ?? []);
+    setProducts(productsResult.data ?? []);
+    setStockByProductId(stockMap);
+    setDataState("ready");
+  }, []);
+
   useEffect(() => {
     if (authState !== "authed") {
       return;
     }
 
-    let cancelled = false;
-
-    const loadArchived = async () => {
-      setDataState("loading");
-      setErrorMessage(null);
-
-      const { data, error } = await supabase.rpc("list_archived_products", {
-        p_limit: 200,
-      });
-
-      if (cancelled) {
-        return;
-      }
-
-      if (error) {
-        console.error("Failed to fetch archived products", error);
-        setErrorMessage("목록을 불러오지 못했어요.");
-        setDataState("error");
-        return;
-      }
-
-      setArchivedProducts((data as ArchivedProduct[] | null) ?? []);
-      setDataState("ready");
+    const loadData = async () => {
+      await loadArchived();
     };
 
-    loadArchived();
+    loadData();
+  }, [authState, loadArchived]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [authState]);
+  const zoneNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    zones.forEach((zone) => {
+      map.set(zone.id, zone.name);
+    });
+    return map;
+  }, [zones]);
+
+  const committedQuery = query.trim();
+  const tokens = useMemo(
+    () => parseSearchTokens(committedQuery),
+    [committedQuery]
+  );
+  const shouldApplyZone = committedQuery.length === 0;
+  const activeZone = shouldApplyZone ? selectedZone : null;
+
+  const filteredProducts = useMemo(() => {
+    if (products.length === 0) {
+      return [];
+    }
+
+    return products.filter((product) => {
+      const zoneName = product.zone_id
+        ? zoneNameById.get(product.zone_id)
+        : null;
+
+      if (activeZone && zoneName !== activeZone) {
+        return false;
+      }
+
+      const haystack = `${product.name} ${product.manufacturer ?? ""}`;
+      return tokensMatchText(haystack, tokens);
+    });
+  }, [activeZone, products, tokens, zoneNameById]);
 
   const isLoading =
     authState === "checking" ||
@@ -340,6 +515,87 @@ export default function ArchivedProductsPage() {
 
   const hasError =
     authState === "error" || (authState === "authed" && dataState === "error");
+
+  const updateSearchParams = useCallback(
+    (updates: { zone?: string | null; q?: string }) => {
+      if (isComposingRef.current) {
+        pendingUpdatesRef.current = {
+          ...pendingUpdatesRef.current,
+          ...updates,
+        };
+        return;
+      }
+
+      const nextParams = new URLSearchParams(searchParams.toString());
+
+      if (updates.zone !== undefined) {
+        if (updates.zone) {
+          nextParams.set("zone", updates.zone);
+        } else {
+          nextParams.delete("zone");
+        }
+      }
+
+      if (updates.q !== undefined) {
+        if (updates.q) {
+          nextParams.set("q", updates.q);
+        } else {
+          nextParams.delete("q");
+        }
+      }
+
+      const nextUrl = nextParams.toString()
+        ? `${pathname}?${nextParams.toString()}`
+        : pathname;
+      router.replace(nextUrl);
+    },
+    [pathname, router, searchParams]
+  );
+
+  useEffect(() => {
+    if (isComposing) {
+      return;
+    }
+
+    const nextQuery = draftQuery.trim();
+    if (nextQuery === committedQuery) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      updateSearchParams({ q: nextQuery });
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [committedQuery, draftQuery, isComposing, updateSearchParams]);
+
+  const handleCompositionStart = () => {
+    isComposingRef.current = true;
+    setIsComposing(true);
+  };
+
+  const handleCompositionEnd = (event: CompositionEvent<HTMLInputElement>) => {
+    isComposingRef.current = false;
+    setIsComposing(false);
+
+    const nextValue = event.currentTarget.value;
+    setDraftQuery(nextValue);
+
+    const nextQuery = nextValue.trim();
+    const pendingUpdates = pendingUpdatesRef.current;
+    pendingUpdatesRef.current = null;
+
+    if (!pendingUpdates && nextQuery === committedQuery) {
+      return;
+    }
+
+    updateSearchParams({ ...(pendingUpdates ?? {}), q: nextQuery });
+  };
+
+  const handleZoneClick = (zone: string) => {
+    const nextZone = selectedZone === zone ? null : zone;
+    updateSearchParams({ zone: nextZone });
+  };
 
   const openRestoreModal = (target: ArchivedProduct) => {
     setRestoreTarget(target);
@@ -379,6 +635,8 @@ export default function ArchivedProductsPage() {
         setRestoreError("세션이 만료되었어요. 다시 로그인해 주세요.");
       } else if (message.includes("inactive user")) {
         setRestoreError("권한이 없어요.");
+      } else if (message.includes("not archived")) {
+        setRestoreError("이미 복구된 상품이에요.");
       } else {
         setRestoreError("복구에 실패했어요.");
       }
@@ -388,19 +646,81 @@ export default function ArchivedProductsPage() {
 
     setRestoreTarget(null);
     setIsRestoring(false);
+    await loadArchived();
+  };
 
-    const { data, error: refreshError } = await supabase.rpc(
-      "list_archived_products",
-      { p_limit: 200 }
-    );
-    if (refreshError) {
-      console.error("Failed to fetch archived products", refreshError);
-      setErrorMessage("목록을 불러오지 못했어요.");
-      setDataState("error");
+  const openDeleteModal = (target: ArchivedProduct) => {
+    setDeleteTarget(target);
+    setDeleteConfirmName("");
+    setDeleteError(null);
+  };
+
+  const closeDeleteModal = () => {
+    if (isDeleting) {
       return;
     }
-    setArchivedProducts((data as ArchivedProduct[] | null) ?? []);
-    setDataState("ready");
+    setDeleteTarget(null);
+    setDeleteConfirmName("");
+    setDeleteError(null);
+  };
+
+  const deleteTargetName = deleteTarget?.name ?? "";
+  const isAdmin = profileRole === "admin";
+  const isDeleteConfirmMatch =
+    deleteTargetName.trim().length > 0 &&
+    deleteConfirmName.trim().toLowerCase() ===
+      deleteTargetName.trim().toLowerCase();
+
+  const handleDeleteConfirm = async () => {
+    if (!isAdmin) {
+      setDeleteError("관리자만 삭제할 수 있어요.");
+      return;
+    }
+    if (!deleteTarget?.id) {
+      setDeleteError("삭제에 실패했어요.");
+      return;
+    }
+    if (!isDeleteConfirmMatch) {
+      setDeleteError("상품명이 일치하지 않아요.");
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    const { error } = await supabase.rpc("delete_product", {
+      p_product_id: deleteTarget.id,
+      p_confirm_name: deleteConfirmName.trim(),
+    });
+
+    if (error) {
+      console.error("Failed to delete product", {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+      });
+      const message = error?.message?.toLowerCase() ?? "";
+      if (message.includes("not authenticated")) {
+        setDeleteError("세션이 만료되었어요. 다시 로그인해 주세요.");
+      } else if (message.includes("inactive user")) {
+        setDeleteError("권한이 없어요.");
+      } else if (message.includes("admin only")) {
+        setDeleteError("관리자만 삭제할 수 있어요.");
+      } else if (message.includes("name mismatch")) {
+        setDeleteError("상품명이 일치하지 않아요.");
+      } else if (message.includes("not archived")) {
+        setDeleteError("비활성화된 상품만 삭제할 수 있어요.");
+      } else {
+        setDeleteError("삭제에 실패했어요.");
+      }
+      setIsDeleting(false);
+      return;
+    }
+
+    setIsDeleting(false);
+    setDeleteTarget(null);
+    await loadArchived();
   };
 
   const handleLogout = async () => {
@@ -413,45 +733,6 @@ export default function ArchivedProductsPage() {
     }
     router.replace("/login");
   };
-
-  const archivedList = useMemo(
-    () =>
-      archivedProducts.map((product) => {
-        const manufacturer = product.manufacturer?.trim() || "제조사 미입력";
-        const zoneName = product.zone_name ?? product.zone ?? "구역 미지정";
-        const stock = typeof product.stock === "number" ? product.stock : 0;
-        const metaLeft = `${manufacturer} · ${zoneName}`;
-        const archivedAt = product.archived_at
-          ? formatTimestamp(product.archived_at)
-          : null;
-        const archivedReason = product.archived_reason?.trim() || null;
-
-        return (
-          <div key={product.id} style={cardStyle}>
-            <p style={cardTitleStyle}>{product.name}</p>
-            <div style={cardRowStyle}>
-              <p style={cardRowLeftStyle}>{metaLeft}</p>
-              <p style={cardRowRightStyle}>재고 {stock}</p>
-            </div>
-            {archivedAt ? (
-              <p style={cardMetaStyle}>비활성화: {archivedAt}</p>
-            ) : null}
-            {archivedReason ? (
-              <p style={cardMetaStyle}>사유: {archivedReason}</p>
-            ) : null}
-            <button
-              type="button"
-              style={restoreButtonStyle}
-              onClick={() => openRestoreModal(product)}
-              disabled={isRestoring}
-            >
-              복구
-            </button>
-          </div>
-        );
-      }),
-    [archivedProducts, isRestoring]
-  );
 
   return (
     <div style={pageStyle}>
@@ -468,29 +749,123 @@ export default function ArchivedProductsPage() {
               <p style={helperTextStyle}>{signOutError}</p>
             ) : null}
           </div>
-        ) : isLoading ? (
-          <SkeletonList />
-        ) : hasError ? (
-          <div style={cardStyle}>
-            <p style={helperTextStyle}>
-              {errorMessage ?? "목록을 불러오지 못했어요."}
-            </p>
-          </div>
         ) : (
           <>
             <header style={headerStyle}>
-              <Link href={backHref} style={backLinkStyle}>
-                목록으로
-              </Link>
-              <h1 style={titleStyle}>비활성화된 상품</h1>
+              <div style={headerRowStyle}>
+                <Link href={backHref} style={backLinkStyle}>
+                  목록으로
+                </Link>
+                {authState !== "blocked" ? (
+                  <button
+                    type="button"
+                    style={logoutButtonStyle}
+                    onClick={handleLogout}
+                  >
+                    로그아웃
+                  </button>
+                ) : null}
+              </div>
+              <h1 style={titleStyle}>비활성화 상품</h1>
             </header>
-            {archivedProducts.length === 0 ? (
+            {authState !== "blocked" && signOutError ? (
+              <p style={helperTextStyle}>{signOutError}</p>
+            ) : null}
+
+            <div style={chipRowStyle}>
+              <button
+                type="button"
+                style={{
+                  ...chipBaseStyle,
+                  ...(!selectedZone ? chipActiveStyle : null),
+                }}
+                onClick={() => updateSearchParams({ zone: null })}
+              >
+                All
+              </button>
+              {ZONE_KEYWORDS.map((zone) => {
+                const isActive = selectedZone === zone;
+                return (
+                  <button
+                    key={zone}
+                    type="button"
+                    style={{
+                      ...chipBaseStyle,
+                      ...(isActive ? chipActiveStyle : null),
+                    }}
+                    onClick={() => handleZoneClick(zone)}
+                  >
+                    {zone}
+                  </button>
+                );
+              })}
+            </div>
+
+            <input
+              type="text"
+              value={draftQuery}
+              onChange={(event) => setDraftQuery(event.currentTarget.value)}
+              onCompositionStart={handleCompositionStart}
+              onCompositionEnd={handleCompositionEnd}
+              placeholder="상품명, 제조사 검색"
+              aria-label="상품명 또는 제조사 검색"
+              style={inputStyle}
+            />
+
+            {isLoading ? (
+              <SkeletonList />
+            ) : hasError ? (
+              <div style={cardStyle}>
+                <p style={helperTextStyle}>
+                  {errorMessage ?? "목록을 불러오지 못했어요."}
+                </p>
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <div style={cardStyle}>
                 <p style={helperTextStyle}>비활성화된 상품이 없어요.</p>
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                {archivedList}
+                {filteredProducts.map((product) => {
+                  const zoneName = product.zone_id
+                    ? zoneNameById.get(product.zone_id)
+                    : null;
+                  const manufacturer =
+                    product.manufacturer?.trim() || "제조사 미입력";
+                  const stock = stockByProductId.get(product.id) ?? 0;
+                  const metaLeft = `${manufacturer} · ${
+                    zoneName ?? "구역 미지정"
+                  }`;
+                  return (
+                    <div key={product.id} style={cardStyle}>
+                      <p style={cardTitleStyle}>{product.name}</p>
+                      <div style={cardRowStyle}>
+                        <p style={cardRowLeftStyle}>{metaLeft}</p>
+                        <p style={cardRowRightStyle}>재고 {stock}</p>
+                      </div>
+                      <div style={cardActionRowStyle}>
+                        <button
+                          type="button"
+                          style={restoreButtonStyle}
+                          onClick={() => openRestoreModal(product)}
+                          disabled={isRestoring || isDeleting}
+                        >
+                          복구
+                        </button>
+                        {isAdmin ? (
+                          <button
+                            type="button"
+                            style={deleteButtonStyle}
+                            onClick={() => openDeleteModal(product)}
+                            disabled={isRestoring || isDeleting}
+                          >
+                            완전삭제
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </>
@@ -526,6 +901,51 @@ export default function ArchivedProductsPage() {
                   disabled={isRestoring}
                 >
                   {isRestoring ? "처리 중..." : "복구"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+        {deleteTarget ? (
+          <div style={modalOverlayStyle}>
+            <div
+              style={modalCardStyle}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delete-title"
+            >
+              <h2 id="delete-title" style={modalTitleStyle}>
+                완전삭제 확인
+              </h2>
+              <p style={helperTextStyle}>삭제하면 복구할 수 없어요.</p>
+              <p style={helperTextStyle}>
+                상품명 <strong>{deleteTargetName}</strong> 를 입력해 주세요.
+              </p>
+              <input
+                type="text"
+                value={deleteConfirmName}
+                onChange={(event) => setDeleteConfirmName(event.currentTarget.value)}
+                placeholder="상품명 입력"
+                aria-label="상품명 입력"
+                style={modalInputStyle}
+              />
+              {deleteError ? <p style={helperTextStyle}>{deleteError}</p> : null}
+              <div style={modalButtonRowStyle}>
+                <button
+                  type="button"
+                  style={modalCancelStyle}
+                  onClick={closeDeleteModal}
+                  disabled={isDeleting}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  style={modalConfirmStyle}
+                  onClick={handleDeleteConfirm}
+                  disabled={isDeleting || !isDeleteConfirmMatch}
+                >
+                  {isDeleting ? "처리 중..." : "완전삭제"}
                 </button>
               </div>
             </div>

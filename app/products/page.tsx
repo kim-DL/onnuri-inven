@@ -63,6 +63,12 @@ const headerBarStyle: CSSProperties = {
   gap: "12px",
 };
 
+const headerActionRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+};
+
 const chipRowStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
@@ -171,6 +177,22 @@ const logoutButtonStyle: CSSProperties = {
   fontSize: "13px",
   fontWeight: 600,
   cursor: "pointer",
+};
+
+const archivedLinkStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 12px",
+  borderRadius: "999px",
+  border: "1px solid #D6D2CC",
+  background: "#FFFFFF",
+  color: "#2E2A27",
+  fontSize: "13px",
+  fontWeight: 600,
+  cursor: "pointer",
+  textDecoration: "none",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
 };
 
 const floatingAddButtonStyle: CSSProperties = {
@@ -413,6 +435,9 @@ export default function ProductsPage() {
 
   const detailQuery = searchParams.toString();
   const detailQuerySuffix = detailQuery ? `?${detailQuery}` : "";
+  const archivedHref = detailQuery
+    ? `/products/archived?${detailQuery}`
+    : "/products/archived";
 
   const updateSearchParams = useCallback(
     (updates: { zone?: string | null; q?: string }) => {
@@ -512,9 +537,14 @@ export default function ProductsPage() {
         <header style={headerBarStyle}>
           <h1 style={titleStyle}>상품 목록</h1>
           {authState !== "blocked" ? (
-            <button type="button" style={logoutButtonStyle} onClick={handleLogout}>
-              로그아웃
-            </button>
+            <div style={headerActionRowStyle}>
+              <Link href={archivedHref} style={archivedLinkStyle}>
+                비활성화 목록
+              </Link>
+              <button type="button" style={logoutButtonStyle} onClick={handleLogout}>
+                로그아웃
+              </button>
+            </div>
           ) : null}
         </header>
         {authState !== "blocked" && signOutError ? (

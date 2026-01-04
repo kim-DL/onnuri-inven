@@ -173,6 +173,25 @@ const logoutButtonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
+const floatingAddButtonStyle: CSSProperties = {
+  position: "fixed",
+  right: "16px",
+  bottom: "16px",
+  width: "56px",
+  height: "56px",
+  borderRadius: "50%",
+  background: "#2E2A27",
+  color: "#FFFFFF",
+  fontSize: "28px",
+  fontWeight: 700,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  textDecoration: "none",
+  boxShadow: "0 6px 16px rgba(46, 42, 39, 0.25)",
+  zIndex: 10,
+};
+
 function normalizeZoneParam(zoneParam: string | null): string | null {
   if (!zoneParam) {
     return null;
@@ -600,6 +619,15 @@ export default function ProductsPage() {
                 })}
               </div>
             )}
+            {authState === "authed" ? (
+              <Link
+                href="/products/new"
+                style={floatingAddButtonStyle}
+                aria-label="제품 추가"
+              >
+                +
+              </Link>
+            ) : null}
           </>
         )}
       </div>

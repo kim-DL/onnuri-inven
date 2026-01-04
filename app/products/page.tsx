@@ -160,45 +160,13 @@ export default function ProductsPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const initialZone = normalizeZoneParam(searchParams.get("zone"));
-  const initialQuery = searchParams.get("q") ?? "";
-
-  const [selectedZone, setSelectedZone] = useState<string | null>(initialZone);
-  const [query, setQuery] = useState(initialQuery);
+  const selectedZone = normalizeZoneParam(searchParams.get("zone"));
+  const query = searchParams.get("q") ?? "";
   const [authState, setAuthState] = useState<AuthState>("checking");
   const [dataState, setDataState] = useState<DataState>("idle");
   const [zones, setZones] = useState<Zone[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    const nextZone = normalizeZoneParam(searchParams.get("zone"));
-    const nextQuery = searchParams.get("q") ?? "";
-    setSelectedZone((prev) => (prev === nextZone ? prev : nextZone));
-    setQuery((prev) => (prev === nextQuery ? prev : nextQuery));
-  }, [searchParams]);
-
-  useEffect(() => {
-    const currentZone = normalizeZoneParam(searchParams.get("zone"));
-    const currentQuery = searchParams.get("q") ?? "";
-
-    if ((currentZone ?? "") === (selectedZone ?? "") && currentQuery === query) {
-      return;
-    }
-
-    const nextParams = new URLSearchParams();
-    if (selectedZone) {
-      nextParams.set("zone", selectedZone);
-    }
-    if (query !== "") {
-      nextParams.set("q", query);
-    }
-
-    const nextUrl = nextParams.toString()
-      ? `${pathname}?${nextParams.toString()}`
-      : pathname;
-    router.replace(nextUrl);
-  }, [pathname, query, router, searchParams, selectedZone]);
 
   useEffect(() => {
     let cancelled = false;
@@ -359,12 +327,34 @@ export default function ProductsPage() {
   const hasError =
     authState === "error" || (authState === "authed" && dataState === "error");
 
-  const handleZoneClick = (zone: string) => {
-    if (selectedZone === zone) {
-      setSelectedZone(null);
-      return;
+  const updateSearchParams = (updates: { zone?: string | null; q?: string }) => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+
+    if (updates.zone !== undefined) {
+      if (updates.zone) {
+        nextParams.set("zone", updates.zone);
+      } else {
+        nextParams.delete("zone");
+      }
     }
-    setSelectedZone(zone);
+
+    if (updates.q !== undefined) {
+      if (updates.q) {
+        nextParams.set("q", updates.q);
+      } else {
+        nextParams.delete("q");
+      }
+    }
+
+    const nextUrl = nextParams.toString()
+      ? `${pathname}?${nextParams.toString()}`
+      : pathname;
+    router.replace(nextUrl);
+  };
+
+  const handleZoneClick = (zone: string) => {
+    const nextZone = selectedZone === zone ? null : zone;
+    updateSearchParams({ zone: nextZone });
   };
 
   const handleLogout = async () => {
@@ -415,7 +405,7 @@ export default function ProductsPage() {
             <input
               type="text"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => updateSearchParams({ q: event.target.value })}
               placeholder="상품명, 제조사 검색"
               aria-label="상품명 또는 제조사 검색"
               style={inputStyle}

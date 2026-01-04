@@ -9,6 +9,10 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const notice = searchParams.get("notice");
+  const noticeMessage =
+    notice === "profile-missing"
+      ? "프로필이 설정되지 않았습니다. 관리자에게 문의하세요."
+      : null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [checking, setChecking] = useState(true);
@@ -17,14 +21,7 @@ export default function LoginPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [accessMessage, setAccessMessage] = useState<string | null>(null);
   const [isBlocked, setIsBlocked] = useState(false);
-
-  useEffect(() => {
-    if (notice === "profile-missing") {
-      setAccessMessage((current) =>
-        current ?? "프로필이 설정되지 않았습니다. 관리자에게 문의하세요."
-      );
-    }
-  }, [notice]);
+  const effectiveAccessMessage = accessMessage ?? noticeMessage;
 
   useEffect(() => {
     let isActive = true;
@@ -171,7 +168,9 @@ export default function LoginPage() {
       <div className="min-h-screen bg-[#F9F8F6] px-4 py-10">
         <div className="mx-auto w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6">
           <h1 className="text-lg font-semibold text-slate-900">접근 안내</h1>
-          <p className="mt-2 text-sm text-slate-600">{accessMessage}</p>
+          <p className="mt-2 text-sm text-slate-600">
+            {effectiveAccessMessage}
+          </p>
           <button
             type="button"
             onClick={handleSignOut}
@@ -194,9 +193,9 @@ export default function LoginPage() {
             이메일과 비밀번호를 입력하세요.
           </p>
 
-          {accessMessage && (
+          {effectiveAccessMessage && (
             <div className="mt-4 rounded-md bg-slate-100 p-3 text-sm text-slate-700">
-              {accessMessage}
+              {effectiveAccessMessage}
             </div>
           )}
 

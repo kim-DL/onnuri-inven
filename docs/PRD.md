@@ -1,102 +1,236 @@
-# PRD — 온누리 재고조사 웹앱 (onnuri-inven)
+# PRD — Onnuri Inventory Count Web App (Onnuri Inven)
 
-## 1) 목적
-현장에서 빠르고 실수에 강한 방식으로 재고를 조회하고(목록/상세),
-입고/출고를 기록하며(재고 조정), 신규 상품을 등록하고(기초 데이터 입력),
-관리자가 사용자 권한/활성 상태를 관리할 수 있는 웹앱을 만든다.
+Version: v1.0 (aligned with SSOT v1.1+ decisions)  
+Owner: Internal operations  
+Platform: Mobile-first web app (Next.js + Supabase)
 
-핵심은 “속도”와 “사고 방지”다.
-- 한 손 조작 기준의 모바일 UX
-- 서버가 규칙을 강제(RPC, RLS)
-- 불필요한 기능을 의도적으로 배제한다
+This PRD defines the product behavior and acceptance criteria.
+Single source of truth for “facts”: `docs/SSOT.md`.
 
-## 2) 사용자 및 권한
-### Staff
-- 상품 조회(목록/상세)
-- 재고 조정(입고/출고)
-- 상품 등록
-- 상품 비활성(아카이브) 처리
+---
 
-### Admin
-- Staff의 모든 기능
-- 사용자 활성/비활성 및 역할 관리
-- 로그 조회(운영 점검)
+## 1) Problem Statement
 
-권한/접근은 Supabase Auth + RLS 정책으로 강제한다. :contentReference[oaicite:1]{index=1}
+On-site staff need a fast, low-friction way to:
+- find products quickly,
+- adjust stock with minimal mistakes,
+- avoid confusing workflows (especially under time pressure).
 
-## 3) 핵심 사용자 흐름
-1) 로그인
-2) 제품목록: 구역 필터 + 검색(토큰 AND)
-3) 제품 상세 진입
-4) 입고/출고 모달에서 “양수” 수량 입력
-5) 서버 RPC로 재고 조정 및 로그 기록
-6) 목록으로 복귀(필터 + 검색 상태 유지)
+The app must prioritize speed and reliability over feature richness.
 
-목록 상태 유지는 URL query params를 사용한다(스크롤 복원은 제외). :contentReference[oaicite:2]{index=2}
+---
 
-## 4) 범위 (v1)
-### 필수 페이지
-- 로그인 페이지
-- 목록(홈) 페이지
-- 상세 페이지
-- 등록 페이지
-- 관리자 페이지
+## 2) Goals
 
-### 필수 기능
-- 로그인/세션 유지 및 접근 제어
-- 구역(냉동1/냉동2/냉장/상온) 기반 필터
-- 검색: 다중 토큰 AND + 구역 토큰 override
-- 상세: 재고 표시 + 입고/출고(양수 입력)
-- 재고 변경은 RPC `public.adjust_stock`로만 처리(직접 update 금지)
-- 재고 변경 시 로그 기록
-- 상품 등록 시 inventory row 생성(stock=0)
-- 상품 비활성(archived_reason 필수)
-- 관리자: 사용자 목록, active/role 관리, 로그 조회(간단)
+- Mobile-first inventory counting workflow: List → Detail → Adjust (IN/OUT) → Back to list
+- Strong guardrails:
+  - no negative stock
+  - no direct inventory updates from client
+  - archive instead of delete
+- Preserve operator context:
+  - list filter/search preserved on back navigation
+- Simple, consistent UI with minimal bug surface.
 
-## 5) 비범위 (의도적으로 하지 않는 것)
-- 스크롤 위치 복원
-- 상세에서 다음/이전 상품 이동
-- 바코드/스캔
-- 제품 속성 변경 이력(재고 변화 로그만 유지)
-- 재고를 프론트에서 계산하거나 누적해 추정하는 로직
-- “완전 삭제” UX(기본은 비활성 운영)
+---
 
-이 비범위 목록은 “사고를 줄이기 위한 설계 결정”이다. :contentReference[oaicite:3]{index=3}
+## 3) Non-Goals (Explicitly Out of Scope)
 
-## 6) UX/디자인 기준
-- 전체 배경색: #F9F8F6 고정
-- 모바일 우선, 터치 타깃 최소 44px
-- 단순한 카드 기반 리스트, 재고 숫자는 크게
-- 로딩: Skeleton
-- 에러: 사용자 메시지는 짧게, 상세는 console.error
+- Scroll position restoration on list
+- Next/prev product navigation on detail
+- Barcode workflow
+- Full attribute change audit logs (only stock adjustments logged)
+- Complex permission tiers beyond admin/staff
 
-## 7) 데이터/백엔드 원칙
-- Supabase (Auth + Postgres + RLS)
-- RLS 활성화 및 정책으로 접근 제어
-- 재고 변경은 RPC만 허용하고, 서버에서 0 미만을 차단
-- 로그는 서버에서 강제 기록
-- 환경 변수(.env.local)에 Supabase URL/ANON KEY 저장(리포지토리에 커밋 금지)
+---
 
-## 8) 성공 기준 (Acceptance Criteria)
-### 기능
-- 로그인 후 staff가 목록/상세 조회 가능
-- staff가 입고/출고를 수행하면:
-  - 재고가 정확히 반영되고
-  - 0 미만 출고는 실패하며
-  - 로그가 남는다
-- 제품 등록 시:
-  - 제품이 생성되고
-  - inventory row가 생성(stock=0)된다
-- 목록에서 필터 + 검색 상태가 URL로 유지되고,
-  상세에서 목록으로 돌아오면 유지된다
-- admin만 관리자 페이지 접근 가능
-- admin이 사용자 active/role을 변경할 수 있다
+## 4) Users and Permissions
 
-### 안정성
-- 재고 직접 update 경로가 없어야 한다(RPC만)
-- 의도적 비범위 기능이 구현되지 않아야 한다
+### 4.1 Roles
+- Staff:
+  - Full on-site operations: create/edit/archive products, adjust stock, export.
+- Admin:
+  - Everything staff can do, plus account management and system settings.
+  - Hard delete only in admin context (and only for archived items, if enabled later).
 
-## 9) 릴리즈 원칙
-- 한 번에 한 페이지/한 기능 슬라이스씩 구현한다
-- 각 슬라이스 완료 시 최소 수동 테스트 체크리스트를 남긴다
-- 요구사항 변경 시 SSOT를 먼저 업데이트한다 :contentReference[oaicite:4]{index=4}
+### 4.2 Active User Requirement
+- Only authenticated users with `users_profile.active=true` may access the app.
+- Inactive users are blocked and can only sign out.
+
+---
+
+## 5) Core UX Rules (SSOT Critical)
+
+### 5.1 Zone chips are browsing, not search narrowing
+Zone chips: All / Frozen1 / Frozen2 / Chilled / Ambient (Korean labels shown in UI)
+
+Rules:
+- If `q` is empty: apply zone filter.
+- If `q` is non-empty: ignore zone filter entirely; search across ALL active products.
+- "All" clears the zone filter by removing `zone` from the URL.
+- Do not parse zone keywords from `q` (no override logic).
+
+### 5.2 List state persistence
+- Persist list state via URL query params only:
+  - `/products?zone=냉동1&q=돈까스`
+- No localStorage-based persistence.
+- Back navigation from detail must restore these params.
+
+### 5.3 Korean IME stability (required)
+- Do not update URL on every keystroke.
+- Never call `router.replace` while IME is composing (compositionstart → compositionend).
+- Commit `q` to URL on compositionend and/or via debounce (~300ms).
+
+---
+
+## 6) Pages and Requirements
+
+## 6.1 Login (`/login`)
+### Requirements
+- Email/password login via Supabase Auth.
+- After login:
+  - If users_profile missing: sign out and redirect to `/login?notice=profile-missing`.
+  - If users_profile.active=false: show blocked message and sign out option.
+  - Else redirect to `/products`.
+
+### Acceptance
+- Invalid credentials: short Korean error message.
+- Valid active user: lands on `/products`.
+
+---
+
+## 6.2 Products List (`/products`)
+### Data
+- Read zones (active), products (active), inventory (read-only).
+- Display:
+  - product name
+  - manufacturer (fallback if empty)
+  - zone label
+  - current stock
+
+### Interaction
+- Zone chips:
+  - All / Frozen1 / Frozen2 / Chilled / Ambient
+  - Apply only when `q` is empty
+- Search:
+  - tokens split by comma/space
+  - AND matching across name + manufacturer (and SSOT-approved extra fields if later expanded)
+- Tap a product → go to `/products/[id]` with current query params preserved.
+
+### UI states
+- Loading: skeleton
+- Empty: clear message
+- Error: short message + `console.error` details
+
+### Acceptance
+- With any zone selected, searching returns results across all zones when `q` exists.
+- Clearing `q` returns to zone browsing behavior.
+- Hangul input works normally without forcing spaces.
+- URL reflects committed state, not every keystroke.
+- Lint passes.
+
+---
+
+## 6.3 Product Detail (`/products/[id]`)
+### Data
+- Read product, zone, inventory, and stock logs (read-only until stock adjust is added).
+
+### Interaction
+- Back link returns to `/products` preserving original query params.
+- Show stock and recent stock adjustment logs.
+
+### Acceptance
+- Unauthed: redirect to `/login`.
+- Profile missing: sign out + redirect to `/login?notice=profile-missing`.
+- Inactive: blocked UI with sign out.
+- Not found/inactive product: clear message + back link.
+
+---
+
+## 6.4 Stock Adjustment (Detail page action)
+### UX
+- Two buttons: IN / OUT
+- Tap → modal input of positive integer only
+
+### Backend rule
+- Must call RPC `public.adjust_stock(p_product_id, p_delta, p_note)`
+- Must never update inventory stock directly
+- Server prevents negative stock
+
+### Acceptance
+- IN increases stock; OUT decreases; cannot go below zero.
+- Log entries created and visible.
+
+---
+
+## 6.5 Product Create (`/products/new`)
+### UX
+- Required: name, zone
+- Optional: manufacturer, unit, spec, origin_country, expiry_date, photo
+- Save → offer add another or go back to list
+
+### Data writes
+- Create product
+- Create inventory row with stock=0
+- If initial stock is specified: call `adjust_stock(+n)` (RPC only)
+
+### Acceptance
+- Product appears in list.
+- Stock is correct and logs reflect adjustments.
+
+---
+
+## 6.6 Admin / Settings (`/admin` or `/settings`)
+### Admin-only
+- Manage users_profile (active/role)
+- View logs
+- Optional settings (future)
+
+---
+
+## 7) Analytics and Observability (Minimal)
+
+- Log client errors with `console.error` (local dev) and add a future hook for real logging.
+- Keep UX error messages short and Korean.
+
+---
+
+## 8) Security Requirements
+
+- Use Supabase publishable key on client only.
+- RLS must enforce access:
+  - authenticated + active user can read
+  - writes restricted; stock write via RPC only
+- Never expose secret key in the client.
+
+---
+
+## 9) Performance Requirements (Practical)
+
+- Mobile-first layout, fast perceived load:
+  - skeleton while fetching
+- Avoid unnecessary router updates:
+  - debounce search URL updates
+  - no keystroke-level navigation spam
+
+---
+
+## 10) Release Strategy
+
+- Implement as slices (one page/feature per PR).
+- Each PR must include:
+  - manual test checklist
+  - `npm run lint` pass
+- Squash merge to main.
+
+---
+
+## 11) Acceptance Criteria Summary (Must Pass)
+
+- Auth gating works for all pages.
+- Products list:
+  - zone browsing works when q empty
+  - search is global when q exists
+  - All chip exists and clears zone
+  - Hangul IME works without forced spaces
+- Stock changes: RPC only; no direct inventory updates.
+- Archive is used instead of delete.

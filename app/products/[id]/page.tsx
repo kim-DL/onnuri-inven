@@ -174,6 +174,18 @@ const archiveButtonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
+const deleteButtonStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 16px",
+  borderRadius: "10px",
+  border: "1px solid #B42318",
+  background: "#B42318",
+  color: "#FFFFFF",
+  fontSize: "14px",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
 const actionRowStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
@@ -343,6 +355,7 @@ export default function ProductDetailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [profileRole, setProfileRole] = useState<string | null>(null);
   const [adjustMode, setAdjustMode] = useState<AdjustMode | null>(null);
   const [adjustQty, setAdjustQty] = useState("");
   const [adjustError, setAdjustError] = useState<string | null>(null);
@@ -357,6 +370,10 @@ export default function ProductDetailPage() {
     string | null
   >(null);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const queryString = searchParams.toString();
   const backHref = queryString ? `/products?${queryString}` : "/products";
@@ -432,6 +449,7 @@ export default function ProductDetailPage() {
     const loadAuth = async () => {
       setAuthState("checking");
       setErrorMessage(null);
+      setProfileRole(null);
 
       const { user, error: sessionError } = await getSessionUser();
       if (cancelled) {
@@ -474,6 +492,18 @@ export default function ProductDetailPage() {
       if (profile.active === false) {
         setAuthState("blocked");
         return;
+      }
+
+      const { data: roleData, error: roleError } = await supabase
+        .from("users_profile")
+        .select("role")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (roleError) {
+        console.error("Failed to fetch user role", roleError);
+      } else {
+        setProfileRole(roleData?.role ?? null);
       }
 
       setAuthState("authed");
@@ -609,6 +639,9 @@ export default function ProductDetailPage() {
   }, [product]);
 
   const zoneLabel = zoneName ?? "구역 미지정";
+  const isAdmin = profileRole === "admin";
+  const deleteTargetName = product?.name ?? "";
+  const isDeleteConfirmMatch = deleteConfirmName === deleteTargetName;
 
   const handleAdjustConfirm = async () => {
     if (!hasValidId || !productId || !adjustMode) {
@@ -701,6 +734,65 @@ export default function ProductDetailPage() {
     }
 
     setIsArchiving(false);
+    router.replace(backHref);
+  };
+
+  const openDeleteModal = () => {
+    setIsArchiveOpen(false);
+    setIsDeleteOpen(true);
+    setDeleteConfirmName("");
+    setDeleteError(null);
+  };
+
+  const closeDeleteModal = () => {
+    if (isDeleting) {
+      return;
+    }
+    setIsDeleteOpen(false);
+    setDeleteConfirmName("");
+    setDeleteError(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!isAdmin) {
+      setDeleteError("관리자만 삭제할 수 있어요.");
+      return;
+    }
+    if (!hasValidId || !productId) {
+      setDeleteError("삭제에 실패했어요.");
+      return;
+    }
+    if (!isDeleteConfirmMatch) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    const { error } = await supabase.rpc("delete_product_admin", {
+      p_product_id: productId,
+    });
+
+    if (error) {
+      console.error("Failed to delete product", {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+      });
+      const message = error?.message?.toLowerCase() ?? "";
+      if (message.includes("admin only")) {
+        setDeleteError("관리자만 삭제할 수 있어요.");
+      } else if (message.includes("not authenticated")) {
+        setDeleteError("세션이 만료되었어요. 다시 로그인해 주세요.");
+      } else {
+        setDeleteError("삭제에 실패했어요.");
+      }
+      setIsDeleting(false);
+      return;
+    }
+
+    setIsDeleting(false);
     router.replace(backHref);
   };
 
@@ -800,6 +892,16 @@ export default function ProductDetailPage() {
               >
                 비활성화(아카이브)
               </button>
+              {isAdmin ? (
+                <button
+                  type="button"
+                  style={deleteButtonStyle}
+                  onClick={openDeleteModal}
+                  disabled={isDeleting}
+                >
+                  완전삭제
+                </button>
+              ) : null}
             </div>
 
             <section style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -918,6 +1020,54 @@ export default function ProductDetailPage() {
                   disabled={isArchiving}
                 >
                   {isArchiving ? "처리 중..." : "비활성화"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+        {isDeleteOpen ? (
+          <div style={modalOverlayStyle}>
+            <div
+              style={modalCardStyle}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delete-title"
+            >
+              <h2 id="delete-title" style={modalTitleStyle}>
+                상품을 삭제할까요?
+              </h2>
+              <p style={helperTextStyle}>삭제하면 복구할 수 없어요.</p>
+              <input
+                type="text"
+                value={deleteConfirmName}
+                onChange={(event) => {
+                  setDeleteConfirmName(event.currentTarget.value);
+                  if (deleteError) {
+                    setDeleteError(null);
+                  }
+                }}
+                placeholder="상품명 입력"
+                aria-label="상품명 입력"
+                style={modalInputStyle}
+              />
+              <p style={helperTextStyle}>상품명을 정확히 입력해야 삭제할 수 있어요.</p>
+              {deleteError ? <p style={helperTextStyle}>{deleteError}</p> : null}
+              <div style={modalButtonRowStyle}>
+                <button
+                  type="button"
+                  style={modalCancelStyle}
+                  onClick={closeDeleteModal}
+                  disabled={isDeleting}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  style={modalDangerStyle}
+                  onClick={handleDeleteConfirm}
+                  disabled={isDeleting || !isDeleteConfirmMatch}
+                >
+                  {isDeleting ? "처리 중..." : "삭제"}
                 </button>
               </div>
             </div>

@@ -116,9 +116,15 @@ const cardStyle: CSSProperties = {
 
 const cardContentStyle: CSSProperties = {
   display: "grid",
+<<<<<<< HEAD
   gridTemplateColumns: "64px minmax(0, 1fr) auto",
   gap: "12px",
   alignItems: "center",
+=======
+  gridTemplateColumns: "64px minmax(0, 1fr)",
+  gap: "12px",
+  alignItems: "flex-start",
+>>>>>>> 7e51532 (refactor(ui): improve list card name/stock readability)
 };
 
 const thumbnailStyle: CSSProperties = {
@@ -153,6 +159,7 @@ const thumbnailImageStyle: CSSProperties = {
   display: "block",
 };
 
+<<<<<<< HEAD
 const cardTextStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -160,26 +167,59 @@ const cardTextStyle: CSSProperties = {
   minWidth: 0,
 };
 
+=======
+const cardBodyStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "6px",
+  minWidth: 0,
+};
+
+const cardRowPrimaryStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  alignItems: "start",
+  gap: "8px",
+};
+
+const cardRowSecondaryStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  alignItems: "center",
+  gap: "8px",
+};
+
+>>>>>>> 7e51532 (refactor(ui): improve list card name/stock readability)
 const cardTitleStyle: CSSProperties = {
   fontSize: "16px",
   fontWeight: 700,
   margin: 0,
+<<<<<<< HEAD
   whiteSpace: "nowrap",
   overflow: "hidden",
   textOverflow: "ellipsis",
 };
 
 const cardRowLeftStyle: CSSProperties = {
+=======
+  lineHeight: 1.3,
+  display: "-webkit-box",
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
+};
+
+const cardMetaStyle: CSSProperties = {
+>>>>>>> 7e51532 (refactor(ui): improve list card name/stock readability)
   fontSize: "13px",
   color: "#5A514B",
   margin: 0,
-  flex: 1,
-  minWidth: 0,
   whiteSpace: "nowrap",
   overflow: "hidden",
   textOverflow: "ellipsis",
 };
 
+<<<<<<< HEAD
 const cardRightStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -191,9 +231,54 @@ const cardRightStyle: CSSProperties = {
 const cardRowRightStyle: CSSProperties = {
   fontSize: "13px",
   color: "#5A514B",
+=======
+const stockBlockStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-end",
+  gap: "2px",
+  minWidth: "64px",
+  textAlign: "right",
+};
+
+const stockLabelStyle: CSSProperties = {
+  fontSize: "11px",
+  color: "#7B736C",
+>>>>>>> 7e51532 (refactor(ui): improve list card name/stock readability)
   margin: 0,
   whiteSpace: "nowrap",
-  flexShrink: 0,
+};
+
+const stockValueStyle: CSSProperties = {
+  fontSize: "20px",
+  fontWeight: 700,
+  color: "#2E2A27",
+  margin: 0,
+  whiteSpace: "nowrap",
+  lineHeight: 1.1,
+};
+
+const badgeBaseStyle: CSSProperties = {
+  fontSize: "11px",
+  fontWeight: 600,
+  padding: "2px 8px",
+  borderRadius: "999px",
+  border: "1px solid transparent",
+  whiteSpace: "nowrap",
+};
+
+const badgeExpiredStyle: CSSProperties = {
+  ...badgeBaseStyle,
+  color: "#B42318",
+  background: "#FEE4E2",
+  borderColor: "#FECDCA",
+};
+
+const badgeWarningStyle: CSSProperties = {
+  ...badgeBaseStyle,
+  color: "#B54708",
+  background: "#FEF0C7",
+  borderColor: "#FEDF89",
 };
 
 const badgeBaseStyle: CSSProperties = {
@@ -791,6 +876,7 @@ export default function ProductsPage() {
                               />
                             ) : null}
                           </div>
+<<<<<<< HEAD
                           <div style={cardTextStyle}>
                             <p style={cardTitleStyle}>{product.name}</p>
                             <p style={cardRowLeftStyle}>{metaLeft}</p>
@@ -802,6 +888,24 @@ export default function ProductsPage() {
                                 {expiryBadge.text}
                               </span>
                             ) : null}
+=======
+                          <div style={cardBodyStyle}>
+                            <div style={cardRowPrimaryStyle}>
+                              <p style={cardTitleStyle}>{product.name}</p>
+                              <div style={stockBlockStyle}>
+                                <p style={stockLabelStyle}>재고</p>
+                                <p style={stockValueStyle}>{stock}</p>
+                              </div>
+                            </div>
+                            <div style={cardRowSecondaryStyle}>
+                              <p style={cardMetaStyle}>{metaLeft}</p>
+                              {expiryBadge ? (
+                                <span style={expiryBadge.style}>
+                                  {expiryBadge.text}
+                                </span>
+                              ) : null}
+                            </div>
+>>>>>>> 7e51532 (refactor(ui): improve list card name/stock readability)
                           </div>
                         </div>
                       </div>

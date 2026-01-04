@@ -12,6 +12,16 @@ type Product = {
   name: string;
   manufacturer: string | null;
   zone_id: string | null;
+  unit: string | null;
+  spec: string | null;
+  origin_country: string | null;
+  expiry_date: string | null;
+  photo_url: string | null;
+};
+
+type Zone = {
+  id: string;
+  name: string;
 };
 
 type InventoryRow = {
@@ -31,6 +41,18 @@ type AdjustMode = "in" | "out";
 
 type AuthState = "checking" | "authed" | "blocked" | "error";
 type DataState = "idle" | "loading" | "ready" | "error";
+
+type EditFormState = {
+  name: string;
+  manufacturer: string;
+  zoneId: string;
+  unit: string;
+  spec: string;
+  originCountry: string;
+  expiryDate: string;
+};
+
+type EditFormErrors = Partial<Record<keyof EditFormState, string>>;
 
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
@@ -84,6 +106,109 @@ const cardStyle: CSSProperties = {
   gap: "10px",
 };
 
+const infoTopRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(96px, 128px) minmax(0, 1fr)",
+  gap: "12px",
+  alignItems: "center",
+};
+
+const photoFrameStyle: CSSProperties = {
+  width: "100%",
+  aspectRatio: "1 / 1",
+  borderRadius: "12px",
+  border: "1px solid #E3DED8",
+  background: "#F1EDE7",
+  overflow: "hidden",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const photoPlaceholderStyle: CSSProperties = {
+  fontSize: "14px",
+  color: "#8C847D",
+  fontWeight: 600,
+  textAlign: "center",
+};
+
+const photoImageStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+  display: "block",
+};
+
+const kpiBlockStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "6px",
+  justifyContent: "center",
+  minWidth: 0,
+  textAlign: "center",
+};
+
+const kpiBadgeRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  flexWrap: "wrap",
+  justifyContent: "center",
+};
+
+const factsSectionStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
+  paddingTop: "12px",
+  borderTop: "1px solid #E8E2DB",
+};
+
+const factsRowStyle: CSSProperties = {
+  display: "flex",
+};
+
+const factsRowDividerStyle: CSSProperties = {
+  borderTop: "1px solid #E8E2DB",
+  paddingTop: "12px",
+};
+
+const factsCellStyle: CSSProperties = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  gap: "4px",
+  minWidth: 0,
+  textAlign: "center",
+};
+
+const factsCellDividerStyle: CSSProperties = {
+  ...factsCellStyle,
+  borderRight: "1px solid #E8E2DB",
+  paddingRight: "12px",
+  marginRight: "12px",
+};
+
+const factsFullRowStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "4px",
+  minWidth: 0,
+};
+
+const factsInlineStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  flexWrap: "wrap",
+};
+
+const factsDotStyle: CSSProperties = {
+  fontSize: "14px",
+  color: "#9C938B",
+  fontWeight: 600,
+};
+
 const labelStyle: CSSProperties = {
   fontSize: "12px",
   color: "#7B736C",
@@ -98,10 +223,32 @@ const valueStyle: CSSProperties = {
 };
 
 const stockValueStyle: CSSProperties = {
-  fontSize: "24px",
+  fontSize: "28px",
   fontWeight: 700,
   color: "#2E2A27",
   margin: 0,
+};
+
+const badgeBaseStyle: CSSProperties = {
+  fontSize: "12px",
+  fontWeight: 600,
+  padding: "2px 8px",
+  borderRadius: "999px",
+  border: "1px solid transparent",
+};
+
+const badgeExpiredStyle: CSSProperties = {
+  ...badgeBaseStyle,
+  color: "#B42318",
+  background: "#FEE4E2",
+  borderColor: "#FECDCA",
+};
+
+const badgeWarningStyle: CSSProperties = {
+  ...badgeBaseStyle,
+  color: "#B54708",
+  background: "#FEF0C7",
+  borderColor: "#FEDF89",
 };
 
 const sectionTitleStyle: CSSProperties = {
@@ -174,6 +321,19 @@ const archiveButtonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
+const editButtonStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 16px",
+  borderRadius: "10px",
+  border: "1px solid #D6D2CC",
+  background: "#FFFFFF",
+  color: "#2E2A27",
+  fontSize: "14px",
+  fontWeight: 600,
+  cursor: "pointer",
+  width: "100%",
+};
+
 const deleteButtonStyle: CSSProperties = {
   minHeight: "44px",
   padding: "0 16px",
@@ -244,9 +404,19 @@ const modalInputStyle: CSSProperties = {
   background: "#FFFFFF",
 };
 
+const modalSelectStyle: CSSProperties = {
+  ...modalInputStyle,
+};
+
 const modalButtonRowStyle: CSSProperties = {
   display: "flex",
   gap: "8px",
+};
+
+const modalFieldStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "6px",
 };
 
 const modalTextareaStyle: CSSProperties = {
@@ -338,6 +508,58 @@ function getAdjustErrorMessage(error: unknown) {
   return "재고 조정에 실패했어요.";
 }
 
+function normalizeOptional(value: string) {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+const EXPIRY_WARNING_DAYS = 100;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function getDaysLeft(dateValue: string) {
+  const parts = dateValue.split("-");
+  if (parts.length !== 3) {
+    return null;
+  }
+  const [yearRaw, monthRaw, dayRaw] = parts;
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return null;
+  }
+
+  const targetDate = new Date(year, month - 1, day);
+  if (Number.isNaN(targetDate.getTime())) {
+    return null;
+  }
+  if (
+    targetDate.getFullYear() !== year ||
+    targetDate.getMonth() !== month - 1 ||
+    targetDate.getDate() !== day
+  ) {
+    return null;
+  }
+
+  const now = new Date();
+  const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.floor((targetDate.getTime() - todayLocal.getTime()) / MS_PER_DAY);
+}
+
+function formatOptionalLabel(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : "미입력";
+}
+
 export default function ProductDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -356,6 +578,22 @@ export default function ProductDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [profileRole, setProfileRole] = useState<string | null>(null);
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [zonesState, setZonesState] = useState<DataState>("idle");
+  const [zonesError, setZonesError] = useState<string | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<EditFormState>({
+    name: "",
+    manufacturer: "",
+    zoneId: "",
+    unit: "",
+    spec: "",
+    originCountry: "",
+    expiryDate: "",
+  });
+  const [editErrors, setEditErrors] = useState<EditFormErrors>({});
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [adjustMode, setAdjustMode] = useState<AdjustMode | null>(null);
   const [adjustQty, setAdjustQty] = useState("");
   const [adjustError, setAdjustError] = useState<string | null>(null);
@@ -385,6 +623,51 @@ export default function ProductDetailPage() {
     setAdjustValidationError(null);
   };
 
+  const loadZones = async () => {
+    setZonesState("loading");
+    setZonesError(null);
+
+    const { data, error } = await supabase
+      .from("zones")
+      .select("id, name, sort_order, active")
+      .eq("active", true)
+      .order("sort_order")
+      .order("name");
+
+    if (error) {
+      console.error("Failed to fetch zones", error);
+      setZonesError("구역 정보를 불러오지 못했어요.");
+      setZonesState("error");
+      return;
+    }
+
+    setZones(data ?? []);
+    setZonesState("ready");
+  };
+
+  const openEditModal = () => {
+    if (!product) {
+      return;
+    }
+
+    setIsEditOpen(true);
+    setEditForm({
+      name: product.name ?? "",
+      manufacturer: product.manufacturer ?? "",
+      zoneId: product.zone_id ?? "",
+      unit: product.unit ?? "",
+      spec: product.spec ?? "",
+      originCountry: product.origin_country ?? "",
+      expiryDate: product.expiry_date ?? "",
+    });
+    setEditErrors({});
+    setEditError(null);
+
+    if (zonesState !== "ready" && zonesState !== "loading") {
+      void loadZones();
+    }
+  };
+
   const openArchiveModal = () => {
     setAdjustMode(null);
     setIsArchiveOpen(true);
@@ -401,6 +684,15 @@ export default function ProductDetailPage() {
     setAdjustQty("");
     setAdjustError(null);
     setAdjustValidationError(null);
+  };
+
+  const closeEditModal = () => {
+    if (isSaving) {
+      return;
+    }
+    setIsEditOpen(false);
+    setEditErrors({});
+    setEditError(null);
   };
 
   const closeArchiveModal = () => {
@@ -536,7 +828,9 @@ export default function ProductDetailPage() {
 
       const productResult = await supabase
         .from("products")
-        .select("id, name, manufacturer, zone_id")
+        .select(
+          "id, name, manufacturer, zone_id, unit, spec, origin_country, expiry_date, photo_url"
+        )
         .eq("id", productId)
         .eq("active", true)
         .maybeSingle();
@@ -630,18 +924,161 @@ export default function ProductDetailPage() {
   const hasError =
     authState === "error" || (authState === "authed" && dataState === "error");
 
-  const manufacturerLabel = useMemo(() => {
-    if (!product) {
-      return "";
+  const manufacturerLabel = formatOptionalLabel(product?.manufacturer);
+  const zoneLabel = formatOptionalLabel(zoneName);
+  const unitLabel = formatOptionalLabel(product?.unit);
+  const specLabel = formatOptionalLabel(product?.spec);
+  const originLabel = formatOptionalLabel(product?.origin_country);
+  const expiryInfo: {
+    label: string;
+    badge: { text: string; style: CSSProperties } | null;
+  } = (() => {
+    const expiryDate = product?.expiry_date;
+    if (!expiryDate) {
+      return { label: "미입력", badge: null };
     }
-    const trimmed = product.manufacturer?.trim();
-    return trimmed ? trimmed : "제조사 미입력";
-  }, [product]);
 
-  const zoneLabel = zoneName ?? "구역 미지정";
+    const daysLeft = getDaysLeft(expiryDate);
+    if (daysLeft === null) {
+      return { label: expiryDate, badge: null };
+    }
+    if (daysLeft < 0) {
+      return {
+        label: expiryDate,
+        badge: { text: "만료", style: badgeExpiredStyle },
+      };
+    }
+    if (daysLeft <= EXPIRY_WARNING_DAYS) {
+      return {
+        label: expiryDate,
+        badge: { text: `임박 D-${daysLeft}`, style: badgeWarningStyle },
+      };
+    }
+
+    return { label: expiryDate, badge: null };
+  })();
+  const photoUrl = product?.photo_url?.trim() ?? "";
+  const hasPhoto = photoUrl.length > 0;
   const isAdmin = profileRole === "admin";
   const deleteTargetName = product?.name ?? "";
   const isDeleteConfirmMatch = deleteConfirmName === deleteTargetName;
+  const isZonesLoading = zonesState === "loading";
+  const zoneOptions = useMemo(
+    () =>
+      zones.map((zone) => (
+        <option key={zone.id} value={zone.id}>
+          {zone.name}
+        </option>
+      )),
+    [zones]
+  );
+
+  const updateEditField = (field: keyof EditFormState, value: string) => {
+    setEditForm((prev) => ({ ...prev, [field]: value }));
+    if (editErrors[field]) {
+      setEditErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const handleEditConfirm = async () => {
+    if (!hasValidId || !productId) {
+      setEditError("수정에 실패했어요.");
+      return;
+    }
+
+    const trimmedName = editForm.name.trim();
+    const errors: EditFormErrors = {};
+    if (!trimmedName) {
+      errors.name = "제품명을 입력해 주세요.";
+    }
+    if (!editForm.zoneId) {
+      errors.zoneId = "구역을 선택해 주세요.";
+    }
+
+    setEditErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
+
+    setEditError(null);
+    setIsSaving(true);
+
+    const nextManufacturer = normalizeOptional(editForm.manufacturer);
+    const nextUnit = normalizeOptional(editForm.unit);
+    const nextSpec = normalizeOptional(editForm.spec);
+    const nextOrigin = normalizeOptional(editForm.originCountry);
+    const nextExpiry = normalizeOptional(editForm.expiryDate);
+
+    const { error } = await supabase.rpc("update_product", {
+      p_product_id: productId,
+      p_name: trimmedName,
+      p_zone_id: editForm.zoneId,
+      p_manufacturer: nextManufacturer,
+      p_unit: nextUnit,
+      p_spec: nextSpec,
+      p_origin_country: nextOrigin,
+      p_expiry_date: nextExpiry,
+    });
+
+    if (error) {
+      console.error("Failed to update product", {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+      });
+      const message = error?.message?.toLowerCase() ?? "";
+      if (message.includes("not authenticated")) {
+        setEditError("세션이 만료되었어요. 다시 로그인해 주세요.");
+      } else if (message.includes("inactive user")) {
+        setEditError("권한이 없어요.");
+      } else if (message.includes("name required")) {
+        setEditErrors({ name: "제품명을 입력해 주세요." });
+      } else if (message.includes("zone required")) {
+        setEditErrors({ zoneId: "구역을 선택해 주세요." });
+      } else {
+        setEditError("수정에 실패했어요.");
+      }
+      setIsSaving(false);
+      return;
+    }
+
+    setProduct((prev) =>
+      prev
+        ? {
+            ...prev,
+            name: trimmedName,
+            manufacturer: nextManufacturer,
+            zone_id: editForm.zoneId,
+            unit: nextUnit,
+            spec: nextSpec,
+            origin_country: nextOrigin,
+            expiry_date: nextExpiry,
+          }
+        : prev
+    );
+
+    const zoneMatch = zones.find((zone) => zone.id === editForm.zoneId);
+    if (zoneMatch) {
+      setZoneName(zoneMatch.name);
+    } else if (editForm.zoneId) {
+      const { data, error: zoneError } = await supabase
+        .from("zones")
+        .select("name")
+        .eq("id", editForm.zoneId)
+        .maybeSingle();
+      if (zoneError) {
+        console.error("Failed to fetch zone", zoneError);
+      } else {
+        setZoneName(data?.name ?? null);
+      }
+    }
+
+    setIsSaving(false);
+    setIsEditOpen(false);
+    setEditErrors({});
+    setEditError(null);
+  };
 
   const handleAdjustConfirm = async () => {
     if (!hasValidId || !productId || !adjustMode) {
@@ -847,19 +1284,76 @@ export default function ProductDetailPage() {
             </header>
 
             <div style={cardStyle}>
-              <div>
-                <p style={labelStyle}>제조사</p>
-                <p style={valueStyle}>{manufacturerLabel}</p>
+              <div style={infoTopRowStyle}>
+                <div style={photoFrameStyle}>
+                  {hasPhoto ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photoUrl}
+                      alt={`${product.name} 사진`}
+                      style={photoImageStyle}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span style={photoPlaceholderStyle}>사진</span>
+                  )}
+                </div>
+                <div style={kpiBlockStyle}>
+                  <p style={labelStyle}>현재 재고</p>
+                  <p style={stockValueStyle}>{stock}</p>
+                  {expiryInfo.badge ? (
+                    <div style={kpiBadgeRowStyle}>
+                      <span style={expiryInfo.badge.style}>
+                        {expiryInfo.badge.text}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
               </div>
-              <div>
-                <p style={labelStyle}>구역</p>
-                <p style={valueStyle}>{zoneLabel}</p>
+
+              <div style={factsSectionStyle}>
+                <div style={factsRowStyle}>
+                  <div style={factsCellDividerStyle}>
+                    <p style={labelStyle}>제조사</p>
+                    <p style={valueStyle}>{manufacturerLabel}</p>
+                  </div>
+                  <div style={factsCellStyle}>
+                    <p style={labelStyle}>구역</p>
+                    <p style={valueStyle}>{zoneLabel}</p>
+                  </div>
+                </div>
+                <div style={{ ...factsRowStyle, ...factsRowDividerStyle }}>
+                  <div style={factsCellDividerStyle}>
+                    <p style={labelStyle}>단위</p>
+                    <p style={valueStyle}>{unitLabel}</p>
+                  </div>
+                  <div style={factsCellStyle}>
+                    <p style={labelStyle}>규격</p>
+                    <p style={valueStyle}>{specLabel}</p>
+                  </div>
+                </div>
+                <div style={{ ...factsFullRowStyle, ...factsRowDividerStyle }}>
+                  <p style={labelStyle}>원산지</p>
+                  <p style={valueStyle}>{originLabel}</p>
+                </div>
+                <div style={{ ...factsFullRowStyle, ...factsRowDividerStyle }}>
+                  <p style={labelStyle}>유통기한</p>
+                  <div style={factsInlineStyle}>
+                    <p style={valueStyle}>{expiryInfo.label}</p>
+                    {expiryInfo.badge ? (
+                      <>
+                        <span style={factsDotStyle}>·</span>
+                        <span style={expiryInfo.badge.style}>
+                          {expiryInfo.badge.text}
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
               </div>
             </div>
 
             <div style={cardStyle}>
-              <p style={labelStyle}>현재 재고</p>
-              <p style={stockValueStyle}>재고 {stock}</p>
               <div style={actionRowStyle}>
                 <button
                   type="button"
@@ -878,6 +1372,14 @@ export default function ProductDetailPage() {
                   출고
                 </button>
               </div>
+              <button
+                type="button"
+                style={editButtonStyle}
+                onClick={openEditModal}
+                disabled={isSaving}
+              >
+                수정
+              </button>
               {adjustMode ? null : adjustError ? (
                 <p style={helperTextStyle}>{adjustError}</p>
               ) : null}
@@ -972,6 +1474,148 @@ export default function ProductDetailPage() {
                   disabled={isAdjusting}
                 >
                   {isAdjusting ? "처리 중..." : "확인"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+        {isEditOpen ? (
+          <div style={modalOverlayStyle}>
+            <div
+              style={modalCardStyle}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="edit-title"
+            >
+              <h2 id="edit-title" style={modalTitleStyle}>
+                상품 수정
+              </h2>
+              <div style={modalFieldStyle}>
+                <label htmlFor="edit-name" style={labelStyle}>
+                  제품명
+                </label>
+                <input
+                  id="edit-name"
+                  type="text"
+                  value={editForm.name}
+                  onChange={(event) => updateEditField("name", event.currentTarget.value)}
+                  placeholder="제품명"
+                  style={modalInputStyle}
+                />
+                {editErrors.name ? (
+                  <p style={helperTextStyle}>{editErrors.name}</p>
+                ) : null}
+              </div>
+              <div style={modalFieldStyle}>
+                <label htmlFor="edit-zone" style={labelStyle}>
+                  구역
+                </label>
+                <select
+                  id="edit-zone"
+                  value={editForm.zoneId}
+                  onChange={(event) =>
+                    updateEditField("zoneId", event.currentTarget.value)
+                  }
+                  style={modalSelectStyle}
+                  disabled={isZonesLoading}
+                >
+                  <option value="">
+                    {isZonesLoading ? "구역 불러오는 중..." : "구역을 선택해 주세요"}
+                  </option>
+                  {zoneOptions}
+                </select>
+                {editErrors.zoneId ? (
+                  <p style={helperTextStyle}>{editErrors.zoneId}</p>
+                ) : null}
+                {zonesError ? <p style={helperTextStyle}>{zonesError}</p> : null}
+              </div>
+              <div style={modalFieldStyle}>
+                <label htmlFor="edit-manufacturer" style={labelStyle}>
+                  제조사
+                </label>
+                <input
+                  id="edit-manufacturer"
+                  type="text"
+                  value={editForm.manufacturer}
+                  onChange={(event) =>
+                    updateEditField("manufacturer", event.currentTarget.value)
+                  }
+                  placeholder="제조사"
+                  style={modalInputStyle}
+                />
+              </div>
+              <div style={modalFieldStyle}>
+                <label htmlFor="edit-unit" style={labelStyle}>
+                  단위
+                </label>
+                <input
+                  id="edit-unit"
+                  type="text"
+                  value={editForm.unit}
+                  onChange={(event) => updateEditField("unit", event.currentTarget.value)}
+                  placeholder="단위"
+                  style={modalInputStyle}
+                />
+              </div>
+              <div style={modalFieldStyle}>
+                <label htmlFor="edit-spec" style={labelStyle}>
+                  규격
+                </label>
+                <input
+                  id="edit-spec"
+                  type="text"
+                  value={editForm.spec}
+                  onChange={(event) => updateEditField("spec", event.currentTarget.value)}
+                  placeholder="규격"
+                  style={modalInputStyle}
+                />
+              </div>
+              <div style={modalFieldStyle}>
+                <label htmlFor="edit-origin" style={labelStyle}>
+                  원산지
+                </label>
+                <input
+                  id="edit-origin"
+                  type="text"
+                  value={editForm.originCountry}
+                  onChange={(event) =>
+                    updateEditField("originCountry", event.currentTarget.value)
+                  }
+                  placeholder="원산지"
+                  style={modalInputStyle}
+                />
+              </div>
+              <div style={modalFieldStyle}>
+                <label htmlFor="edit-expiry" style={labelStyle}>
+                  유통기한
+                </label>
+                <input
+                  id="edit-expiry"
+                  type="date"
+                  value={editForm.expiryDate}
+                  onChange={(event) =>
+                    updateEditField("expiryDate", event.currentTarget.value)
+                  }
+                  style={modalInputStyle}
+                />
+              </div>
+              {editError ? <p style={helperTextStyle}>{editError}</p> : null}
+              <div style={modalButtonRowStyle}>
+                <button
+                  type="button"
+                  style={modalCancelStyle}
+                  onClick={closeEditModal}
+                  disabled={isSaving}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  style={modalConfirmStyle}
+                  onClick={handleEditConfirm}
+                  disabled={isSaving}
+                >
+                  {isSaving ? "처리 중..." : "저장"}
                 </button>
               </div>
             </div>

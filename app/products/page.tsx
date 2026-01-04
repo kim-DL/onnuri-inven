@@ -56,6 +56,13 @@ const titleStyle: CSSProperties = {
   margin: 0,
 };
 
+const headerBarStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "12px",
+};
+
 const chipRowStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
@@ -154,6 +161,18 @@ const buttonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
+const logoutButtonStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 12px",
+  borderRadius: "999px",
+  border: "1px solid #D6D2CC",
+  background: "#FFFFFF",
+  color: "#2E2A27",
+  fontSize: "13px",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
 function normalizeZoneParam(zoneParam: string | null): string | null {
   if (!zoneParam) {
     return null;
@@ -191,6 +210,7 @@ export default function ProductsPage() {
     new Map()
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const [draftQuery, setDraftQuery] = useState(query);
   const [isComposing, setIsComposing] = useState(false);
   const isComposingRef = useRef(false);
@@ -457,9 +477,12 @@ export default function ProductsPage() {
   };
 
   const handleLogout = async () => {
+    setSignOutError(null);
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error("Failed to sign out", error);
+      setSignOutError("로그아웃에 실패했어요.");
+      return;
     }
     router.replace("/login");
   };
@@ -467,9 +490,17 @@ export default function ProductsPage() {
   return (
     <div style={pageStyle}>
       <div style={containerStyle}>
-        <header>
+        <header style={headerBarStyle}>
           <h1 style={titleStyle}>상품 목록</h1>
+          {authState !== "blocked" ? (
+            <button type="button" style={logoutButtonStyle} onClick={handleLogout}>
+              로그아웃
+            </button>
+          ) : null}
         </header>
+        {authState !== "blocked" && signOutError ? (
+          <p style={helperTextStyle}>{signOutError}</p>
+        ) : null}
 
         {authState === "blocked" ? (
           <div style={{ ...cardStyle, gap: "12px" }}>
@@ -479,6 +510,9 @@ export default function ProductsPage() {
             <button type="button" style={buttonStyle} onClick={handleLogout}>
               로그아웃
             </button>
+            {signOutError ? (
+              <p style={helperTextStyle}>{signOutError}</p>
+            ) : null}
           </div>
         ) : (
           <>

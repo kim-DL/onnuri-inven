@@ -162,6 +162,18 @@ const buttonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
+const archiveButtonStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 16px",
+  borderRadius: "10px",
+  border: "1px solid #E3DED8",
+  background: "#FFFFFF",
+  color: "#B42318",
+  fontSize: "14px",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
 const actionRowStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
@@ -225,6 +237,16 @@ const modalButtonRowStyle: CSSProperties = {
   gap: "8px",
 };
 
+const modalTextareaStyle: CSSProperties = {
+  minHeight: "96px",
+  padding: "10px 12px",
+  borderRadius: "10px",
+  border: "1px solid #D6D2CC",
+  fontSize: "15px",
+  background: "#FFFFFF",
+  resize: "vertical",
+};
+
 const modalCancelStyle: CSSProperties = {
   minHeight: "44px",
   padding: "0 16px",
@@ -241,6 +263,12 @@ const modalCancelStyle: CSSProperties = {
 const modalConfirmStyle: CSSProperties = {
   ...buttonStyle,
   flex: 1,
+};
+
+const modalDangerStyle: CSSProperties = {
+  ...buttonStyle,
+  flex: 1,
+  background: "#B42318",
 };
 
 function SkeletonDetail() {
@@ -322,6 +350,13 @@ export default function ProductDetailPage() {
     string | null
   >(null);
   const [isAdjusting, setIsAdjusting] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [archiveReason, setArchiveReason] = useState("");
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [archiveValidationError, setArchiveValidationError] = useState<
+    string | null
+  >(null);
+  const [isArchiving, setIsArchiving] = useState(false);
 
   const queryString = searchParams.toString();
   const backHref = queryString ? `/products?${queryString}` : "/products";
@@ -333,6 +368,14 @@ export default function ProductDetailPage() {
     setAdjustValidationError(null);
   };
 
+  const openArchiveModal = () => {
+    setAdjustMode(null);
+    setIsArchiveOpen(true);
+    setArchiveReason("");
+    setArchiveError(null);
+    setArchiveValidationError(null);
+  };
+
   const closeAdjustModal = () => {
     if (isAdjusting) {
       return;
@@ -341,6 +384,16 @@ export default function ProductDetailPage() {
     setAdjustQty("");
     setAdjustError(null);
     setAdjustValidationError(null);
+  };
+
+  const closeArchiveModal = () => {
+    if (isArchiving) {
+      return;
+    }
+    setIsArchiveOpen(false);
+    setArchiveReason("");
+    setArchiveError(null);
+    setArchiveValidationError(null);
   };
 
   const refreshInventoryAndLogs = async (targetId: string) => {
@@ -604,6 +657,53 @@ export default function ProductDetailPage() {
     }
   };
 
+  const handleArchiveConfirm = async () => {
+    if (!hasValidId || !productId) {
+      setArchiveError("비활성화에 실패했어요.");
+      return;
+    }
+
+    const reason = archiveReason.trim();
+    if (!reason) {
+      setArchiveValidationError("사유를 입력해 주세요.");
+      return;
+    }
+
+    setArchiveValidationError(null);
+    setArchiveError(null);
+
+    setIsArchiving(true);
+
+    const { error } = await supabase.rpc("archive_product", {
+      p_product_id: productId,
+      p_reason: reason,
+    });
+
+    if (error) {
+      console.error("Failed to archive product", {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+      });
+      const message = error?.message?.toLowerCase() ?? "";
+      if (message.includes("reason required")) {
+        setArchiveValidationError("사유를 입력해 주세요.");
+      } else if (message.includes("inactive user")) {
+        setArchiveError("권한이 없어요.");
+      } else if (message.includes("not authenticated")) {
+        setArchiveError("세션이 만료되었어요. 다시 로그인해 주세요.");
+      } else {
+        setArchiveError("비활성화에 실패했어요.");
+      }
+      setIsArchiving(false);
+      return;
+    }
+
+    setIsArchiving(false);
+    router.replace(backHref);
+  };
+
   const handleLogout = async () => {
     setSignOutError(null);
     const { error } = await signOut();
@@ -691,6 +791,17 @@ export default function ProductDetailPage() {
               ) : null}
             </div>
 
+            <div style={cardStyle}>
+              <button
+                type="button"
+                style={archiveButtonStyle}
+                onClick={openArchiveModal}
+                disabled={isArchiving}
+              >
+                비활성화(아카이브)
+              </button>
+            </div>
+
             <section style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               <h2 style={sectionTitleStyle}>최근 입출고 이력</h2>
               {logs.length === 0 ? (
@@ -759,6 +870,54 @@ export default function ProductDetailPage() {
                   disabled={isAdjusting}
                 >
                   {isAdjusting ? "처리 중..." : "확인"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+        {isArchiveOpen ? (
+          <div style={modalOverlayStyle}>
+            <div
+              style={modalCardStyle}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="archive-title"
+            >
+              <h2 id="archive-title" style={modalTitleStyle}>
+                상품 비활성화
+              </h2>
+              <textarea
+                value={archiveReason}
+                onChange={(event) => {
+                  setArchiveReason(event.currentTarget.value);
+                  if (archiveValidationError) {
+                    setArchiveValidationError(null);
+                  }
+                }}
+                placeholder="사유 입력(필수)"
+                aria-label="사유 입력"
+                style={modalTextareaStyle}
+              />
+              {archiveValidationError ? (
+                <p style={helperTextStyle}>{archiveValidationError}</p>
+              ) : null}
+              {archiveError ? <p style={helperTextStyle}>{archiveError}</p> : null}
+              <div style={modalButtonRowStyle}>
+                <button
+                  type="button"
+                  style={modalCancelStyle}
+                  onClick={closeArchiveModal}
+                  disabled={isArchiving}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  style={modalDangerStyle}
+                  onClick={handleArchiveConfirm}
+                  disabled={isArchiving}
+                >
+                  {isArchiving ? "처리 중..." : "비활성화"}
                 </button>
               </div>
             </div>

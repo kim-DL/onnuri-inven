@@ -1,12 +1,12 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CompositionEvent, CSSProperties } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import {
   ZONE_KEYWORDS,
-  extractZoneOverride,
   parseSearchTokens,
   tokensMatchText,
 } from "../../lib/search";
@@ -23,16 +23,17 @@ type Product = {
   zone_id: string | null;
 };
 
+type InventoryRow = {
+  product_id: string;
+  stock: number;
+};
+
 type AuthState = "checking" | "authed" | "blocked" | "error";
 
 type DataState = "idle" | "loading" | "ready" | "error";
 
 const ZONE_PARAM_MAP = new Map(
   ZONE_KEYWORDS.map((keyword) => [keyword.toLowerCase(), keyword])
-);
-
-const ZONE_TOKEN_SET = new Set(
-  ZONE_KEYWORDS.map((keyword) => keyword.toLowerCase())
 );
 
 const pageStyle: CSSProperties = {
@@ -76,7 +77,7 @@ const chipBaseStyle: CSSProperties = {
 const chipActiveStyle: CSSProperties = {
   background: "#2E2A27",
   color: "#FFFFFF",
-  borderColor: "#2E2A27",
+  border: "1px solid #2E2A27",
 };
 
 const inputStyle: CSSProperties = {
@@ -104,10 +105,30 @@ const cardTitleStyle: CSSProperties = {
   margin: 0,
 };
 
-const cardMetaStyle: CSSProperties = {
+const cardRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "12px",
+};
+
+const cardRowLeftStyle: CSSProperties = {
   fontSize: "13px",
   color: "#5A514B",
   margin: 0,
+  flex: 1,
+  minWidth: 0,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+
+const cardRowRightStyle: CSSProperties = {
+  fontSize: "13px",
+  color: "#5A514B",
+  margin: 0,
+  whiteSpace: "nowrap",
+  flexShrink: 0,
 };
 
 const helperTextStyle: CSSProperties = {
@@ -166,7 +187,20 @@ export default function ProductsPage() {
   const [dataState, setDataState] = useState<DataState>("idle");
   const [zones, setZones] = useState<Zone[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [stockByProductId, setStockByProductId] = useState<Map<string, number>>(
+    new Map()
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [draftQuery, setDraftQuery] = useState(query);
+  const [isComposing, setIsComposing] = useState(false);
+  const isComposingRef = useRef(false);
+  const pendingUpdatesRef = useRef<{ zone?: string | null; q?: string } | null>(
+    null
+  );
+
+  useEffect(() => {
+    setDraftQuery(query);
+  }, [query]);
 
   useEffect(() => {
     let cancelled = false;
@@ -247,33 +281,45 @@ export default function ProductsPage() {
       setDataState("loading");
       setErrorMessage(null);
 
-      const [zonesResult, productsResult] = await Promise.all([
+      const [zonesResult, productsResult, inventoryResult] = await Promise.all([
         supabase.from("zones").select("id, name").order("sort_order"),
         supabase
           .from("products")
           .select("id, name, manufacturer, zone_id")
           .eq("active", true)
           .order("name"),
+        supabase.from("inventory").select("product_id, stock"),
       ]);
 
       if (cancelled) {
         return;
       }
 
-      if (zonesResult.error || productsResult.error) {
+      if (zonesResult.error || productsResult.error || inventoryResult.error) {
         if (zonesResult.error) {
           console.error("Failed to fetch zones", zonesResult.error);
         }
         if (productsResult.error) {
           console.error("Failed to fetch products", productsResult.error);
         }
+        if (inventoryResult.error) {
+          console.error("Failed to fetch inventory", inventoryResult.error);
+        }
         setErrorMessage("상품 목록을 불러오지 못했어요.");
         setDataState("error");
         return;
       }
 
+      const stockMap = new Map<string, number>();
+      (inventoryResult.data as InventoryRow[] | null | undefined)?.forEach(
+        (row) => {
+          stockMap.set(row.product_id, row.stock);
+        }
+      );
+
       setZones(zonesResult.data ?? []);
       setProducts(productsResult.data ?? []);
+      setStockByProductId(stockMap);
       setDataState("ready");
     };
 
@@ -292,14 +338,13 @@ export default function ProductsPage() {
     return map;
   }, [zones]);
 
-  const tokens = useMemo(() => parseSearchTokens(query), [query]);
-  const zoneOverride = useMemo(() => extractZoneOverride(tokens), [tokens]);
-  const textTokens = useMemo(
-    () => tokens.filter((token) => !ZONE_TOKEN_SET.has(token)),
-    [tokens]
+  const committedQuery = query.trim();
+  const tokens = useMemo(
+    () => parseSearchTokens(committedQuery),
+    [committedQuery]
   );
-
-  const effectiveZone = zoneOverride ?? selectedZone;
+  const shouldApplyZone = committedQuery.length === 0;
+  const activeZone = shouldApplyZone ? selectedZone : null;
 
   const filteredProducts = useMemo(() => {
     if (products.length === 0) {
@@ -311,14 +356,14 @@ export default function ProductsPage() {
         ? zoneNameById.get(product.zone_id)
         : null;
 
-      if (effectiveZone && zoneName !== effectiveZone) {
+      if (activeZone && zoneName !== activeZone) {
         return false;
       }
 
       const haystack = `${product.name} ${product.manufacturer ?? ""}`;
-      return tokensMatchText(haystack, textTokens);
+      return tokensMatchText(haystack, tokens);
     });
-  }, [effectiveZone, products, textTokens, zoneNameById]);
+  }, [activeZone, products, tokens, zoneNameById]);
 
   const isLoading =
     authState === "checking" ||
@@ -327,29 +372,83 @@ export default function ProductsPage() {
   const hasError =
     authState === "error" || (authState === "authed" && dataState === "error");
 
-  const updateSearchParams = (updates: { zone?: string | null; q?: string }) => {
-    const nextParams = new URLSearchParams(searchParams.toString());
+  const detailQuery = searchParams.toString();
+  const detailQuerySuffix = detailQuery ? `?${detailQuery}` : "";
 
-    if (updates.zone !== undefined) {
-      if (updates.zone) {
-        nextParams.set("zone", updates.zone);
-      } else {
-        nextParams.delete("zone");
+  const updateSearchParams = useCallback(
+    (updates: { zone?: string | null; q?: string }) => {
+      if (isComposingRef.current) {
+        pendingUpdatesRef.current = {
+          ...pendingUpdatesRef.current,
+          ...updates,
+        };
+        return;
       }
+
+      const nextParams = new URLSearchParams(searchParams.toString());
+
+      if (updates.zone !== undefined) {
+        if (updates.zone) {
+          nextParams.set("zone", updates.zone);
+        } else {
+          nextParams.delete("zone");
+        }
+      }
+
+      if (updates.q !== undefined) {
+        if (updates.q) {
+          nextParams.set("q", updates.q);
+        } else {
+          nextParams.delete("q");
+        }
+      }
+
+      const nextUrl = nextParams.toString()
+        ? `${pathname}?${nextParams.toString()}`
+        : pathname;
+      router.replace(nextUrl);
+    },
+    [pathname, router, searchParams]
+  );
+
+  useEffect(() => {
+    if (isComposing) {
+      return;
     }
 
-    if (updates.q !== undefined) {
-      if (updates.q) {
-        nextParams.set("q", updates.q);
-      } else {
-        nextParams.delete("q");
-      }
+    const nextQuery = draftQuery.trim();
+    if (nextQuery === committedQuery) {
+      return;
     }
 
-    const nextUrl = nextParams.toString()
-      ? `${pathname}?${nextParams.toString()}`
-      : pathname;
-    router.replace(nextUrl);
+    const timeoutId = setTimeout(() => {
+      updateSearchParams({ q: nextQuery });
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [committedQuery, draftQuery, isComposing, updateSearchParams]);
+
+  const handleCompositionStart = () => {
+    isComposingRef.current = true;
+    setIsComposing(true);
+  };
+
+  const handleCompositionEnd = (event: CompositionEvent<HTMLInputElement>) => {
+    isComposingRef.current = false;
+    setIsComposing(false);
+
+    const nextValue = event.currentTarget.value;
+    setDraftQuery(nextValue);
+
+    const nextQuery = nextValue.trim();
+    const pendingUpdates = pendingUpdatesRef.current;
+    pendingUpdatesRef.current = null;
+
+    if (!pendingUpdates && nextQuery === committedQuery) {
+      return;
+    }
+
+    updateSearchParams({ ...(pendingUpdates ?? {}), q: nextQuery });
   };
 
   const handleZoneClick = (zone: string) => {
@@ -384,8 +483,18 @@ export default function ProductsPage() {
         ) : (
           <>
             <div style={chipRowStyle}>
+              <button
+                type="button"
+                style={{
+                  ...chipBaseStyle,
+                  ...(!selectedZone ? chipActiveStyle : null),
+                }}
+                onClick={() => updateSearchParams({ zone: null })}
+              >
+                All
+              </button>
               {ZONE_KEYWORDS.map((zone) => {
-                const isActive = effectiveZone === zone;
+                const isActive = selectedZone === zone;
                 return (
                   <button
                     key={zone}
@@ -404,8 +513,10 @@ export default function ProductsPage() {
 
             <input
               type="text"
-              value={query}
-              onChange={(event) => updateSearchParams({ q: event.target.value })}
+              value={draftQuery}
+              onChange={(event) => setDraftQuery(event.currentTarget.value)}
+              onCompositionStart={handleCompositionStart}
+              onCompositionEnd={handleCompositionEnd}
               placeholder="상품명, 제조사 검색"
               aria-label="상품명 또는 제조사 검색"
               style={inputStyle}
@@ -430,12 +541,27 @@ export default function ProductsPage() {
                     ? zoneNameById.get(product.zone_id)
                     : null;
                   const manufacturer = product.manufacturer ?? "제조사 미입력";
+                  const stock = stockByProductId.get(product.id) ?? 0;
+                  const metaLeft = `${manufacturer} · ${zoneName ?? "구역 미지정"}`;
+                  const detailHref = `/products/${product.id}${detailQuerySuffix}`;
                   return (
-                    <div key={product.id} style={cardStyle}>
-                      <p style={cardTitleStyle}>{product.name}</p>
-                      <p style={cardMetaStyle}>{manufacturer}</p>
-                      <p style={cardMetaStyle}>{zoneName ?? "구역 미지정"}</p>
-                    </div>
+                    <Link
+                      key={product.id}
+                      href={detailHref}
+                      style={{
+                        display: "block",
+                        color: "inherit",
+                        textDecoration: "none",
+                      }}
+                    >
+                      <div style={cardStyle}>
+                        <p style={cardTitleStyle}>{product.name}</p>
+                        <div style={cardRowStyle}>
+                          <p style={cardRowLeftStyle}>{metaLeft}</p>
+                          <p style={cardRowRightStyle}>재고 {stock}</p>
+                        </div>
+                      </div>
+                    </Link>
                   );
                 })}
               </div>

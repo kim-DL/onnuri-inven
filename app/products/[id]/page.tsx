@@ -212,6 +212,7 @@ export default function ProductDetailPage() {
   const [logs, setLogs] = useState<InventoryLog[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
 
   const queryString = searchParams.toString();
   const backHref = queryString ? `/products?${queryString}` : "/products";
@@ -401,9 +402,12 @@ export default function ProductDetailPage() {
   const zoneLabel = zoneName ?? "구역 미지정";
 
   const handleLogout = async () => {
+    setSignOutError(null);
     const { error } = await signOut();
     if (error) {
       console.error("Failed to sign out", error);
+      setSignOutError("로그아웃에 실패했어요.");
+      return;
     }
     router.replace("/login");
   };
@@ -419,6 +423,9 @@ export default function ProductDetailPage() {
             <button type="button" style={buttonStyle} onClick={handleLogout}>
               로그아웃
             </button>
+            {signOutError ? (
+              <p style={helperTextStyle}>{signOutError}</p>
+            ) : null}
           </div>
         ) : isLoading ? (
           <SkeletonDetail />

@@ -1,18 +1,34 @@
----
-name: onnuri-guardrails
-description: Enforce non-negotiable project rules before writing or changing code.
-metadata:
-  short-description: Project safety rails
----
+# Skill: onnuri-page-slice
 
-## Must-follow rules (hard stops)
-- Never update `inventory.stock` directly. Stock changes MUST use `public.adjust_stock(...)`.
-- No delete UX. Use archive: `products.active=false` + `archived_reason` required.
-- List state persistence MUST use URL query params only. No localStorage.
-- Do NOT implement scroll restoration.
-- Search is token-based AND, and zone tokens in query override zone filter buttons.
-- If a request conflicts with docs/SSOT.md or docs/CODEX_RULES.md, stop and propose a compliant alternative.
+This skill enforces “one slice at a time” delivery.
 
-## When unsure
-- Re-read: `AGENTS.md`, `docs/SSOT.md`, `docs/CODEX_RULES.md`, `docs/TODO.md`.
-- Ask for the smallest missing detail only if absolutely necessary; otherwise proceed with safest assumptions.
+## What counts as a slice
+A slice is ONE of the following:
+- one page route (e.g. `/products/[id]`)
+- one user-visible feature within a single page (e.g. “IME-safe search URL persistence”)
+
+Do not bundle multiple pages, refactors, or unrelated cleanup in a single slice.
+
+## Scope limits
+- Change the minimum number of files required.
+- Do not rename folders, restructure app layout, or reformat the whole file.
+- Do not introduce new dependencies unless SSOT explicitly requires it.
+
+## Required output format (in your completion message)
+1) What changed (1–3 short bullets)
+2) Files changed (list)
+3) How to test locally (exact commands)
+4) Manual test checklist (bullet list)
+5) Known limitations (if any)
+
+## Implementation preferences (Next.js App Router)
+- Prefer simple client components only where needed.
+- Avoid unnecessary navigation churn.
+- Keep state persistence in the URL (per guardrails).
+- Keep the UI mobile-first and consistent with the UI system skill.
+
+## Quality gates
+- Must pass `npm run lint`.
+- No direct writes to inventory.
+- No localStorage list-state persistence.
+- Avoid IME-breaking patterns (router updates per keystroke).

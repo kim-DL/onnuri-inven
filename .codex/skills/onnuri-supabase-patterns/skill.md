@@ -1,23 +1,58 @@
----
-name: onnuri-supabase-patterns
-description: Use approved Supabase access patterns (auth, reads, RPC writes) for this app.
-metadata:
-  short-description: Supabase patterns
----
+# Skill: onnuri-supabase-patterns
 
-## Auth / Session
-- Use Supabase Auth session. If unauthenticated, redirect to `/login`.
-- Read `users_profile` to enforce `active` and `role`.
+This skill defines safe Supabase usage patterns for Onnuri Inven.
 
-## Reads
-- Use select queries (or views) defined in SSOT.
-- Keep reads consistent across list/detail.
+Single Source of Truth:
+- `docs/SSOT.md` defines schema, RLS expectations, and the adjust_stock RPC contract.
 
-## Writes
-- Stock changes: RPC only: `supabase.rpc('adjust_stock', { p_product_id, p_delta, p_note })`.
-- Never update `inventory.stock` directly from client code.
-- For new products: create product + create inventory row with `stock=0`, then optional `adjust_stock(+n)` if initial stock is needed.
+## Client keys and security
+- Client uses only:
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable)
+- Never use or expose the secret key in frontend code.
+
+## Auth + profile gating (required)
+Before showing any protected page:
+1) Read current session/user from Supabase Auth.
+2) Read `users_profile` row for the user.
+3) Enforce:
+   - if no session: redirect to `/login`
+   - if users_profile missing: sign out and redirect to `/login?notice=profile-missing`
+   - if users_profile.active=false: show blocked UI with a sign-out button
+
+## Reads (common patterns)
+- Zones:
+  - read active zones, ordered by `sort_order` if available
+- Products:
+  - read active products only (`active=true`)
+- Inventory:
+  - read-only, join by product_id as needed
+- Inventory logs:
+  - read-only, show recent entries on detail page
+
+Prefer a single read pass per page:
+- fetch zones once
+- fetch active products once
+- filter in-memory (unless SSOT later requires server-side filtering)
+
+## Writes (strict rules)
+### Stock changes
+- RPC only:
+  `supabase.rpc('adjust_stock', { p_product_id, p_delta, p_note })`
+- Never update inventory rows directly from client.
+
+### Product creation
+- Create product row first.
+- Create inventory row with `stock=0`.
+- If initial stock is needed, call `adjust_stock(+n)` after inventory row exists.
+
+### Archive (no delete)
+- Archive by updating the product:
+  - `active=false`
+  - `archived_reason` required
+- Do not create delete flows.
 
 ## Error handling
-- User-facing: short message
-- Developer-facing: console.error with full context
+- User-facing: short Korean message.
+- Developer-facing: `console.error` with details.
+- Prefer deterministic states: loading / error / empty / content.

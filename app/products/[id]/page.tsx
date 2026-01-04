@@ -27,6 +27,8 @@ type InventoryLog = {
   after_stock: number;
 };
 
+type AdjustMode = "in" | "out";
+
 type AuthState = "checking" | "authed" | "blocked" | "error";
 type DataState = "idle" | "loading" | "ready" | "error";
 
@@ -160,6 +162,87 @@ const buttonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
+const actionRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "12px",
+};
+
+const actionButtonStyle: CSSProperties = {
+  ...buttonStyle,
+  width: "100%",
+};
+
+const actionButtonAltStyle: CSSProperties = {
+  ...buttonStyle,
+  width: "100%",
+  background: "#FFFFFF",
+  color: "#2E2A27",
+  border: "1px solid #D6D2CC",
+};
+
+const modalOverlayStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(46, 42, 39, 0.35)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "16px",
+  zIndex: 50,
+};
+
+const modalCardStyle: CSSProperties = {
+  width: "100%",
+  maxWidth: "360px",
+  borderRadius: "12px",
+  border: "1px solid #E3DED8",
+  background: "#FFFFFF",
+  padding: "16px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
+};
+
+const modalTitleStyle: CSSProperties = {
+  fontSize: "16px",
+  fontWeight: 700,
+  margin: 0,
+  color: "#2E2A27",
+};
+
+const modalInputStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 12px",
+  borderRadius: "10px",
+  border: "1px solid #D6D2CC",
+  fontSize: "16px",
+  background: "#FFFFFF",
+};
+
+const modalButtonRowStyle: CSSProperties = {
+  display: "flex",
+  gap: "8px",
+};
+
+const modalCancelStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 16px",
+  borderRadius: "10px",
+  border: "1px solid #D6D2CC",
+  background: "#FFFFFF",
+  color: "#2E2A27",
+  fontSize: "15px",
+  fontWeight: 600,
+  cursor: "pointer",
+  flex: 1,
+};
+
+const modalConfirmStyle: CSSProperties = {
+  ...buttonStyle,
+  flex: 1,
+};
+
 function SkeletonDetail() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -196,6 +279,25 @@ function formatTimestamp(raw: string) {
   return date.toLocaleString("ko-KR");
 }
 
+function getAdjustErrorMessage(error: unknown) {
+  const message =
+    typeof error === "object" && error && "message" in error
+      ? String((error as { message?: string }).message ?? "")
+      : "";
+  const lowered = message.toLowerCase();
+
+  if (
+    lowered.includes("after_stock") ||
+    lowered.includes("insufficient") ||
+    lowered.includes("negative") ||
+    lowered.includes("below")
+  ) {
+    return "재고가 부족해요.";
+  }
+
+  return "재고 조정에 실패했어요.";
+}
+
 export default function ProductDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -213,9 +315,63 @@ export default function ProductDetailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [adjustMode, setAdjustMode] = useState<AdjustMode | null>(null);
+  const [adjustQty, setAdjustQty] = useState("");
+  const [adjustError, setAdjustError] = useState<string | null>(null);
+  const [adjustValidationError, setAdjustValidationError] = useState<
+    string | null
+  >(null);
+  const [isAdjusting, setIsAdjusting] = useState(false);
 
   const queryString = searchParams.toString();
   const backHref = queryString ? `/products?${queryString}` : "/products";
+
+  const openAdjustModal = (mode: AdjustMode) => {
+    setAdjustMode(mode);
+    setAdjustQty("");
+    setAdjustError(null);
+    setAdjustValidationError(null);
+  };
+
+  const closeAdjustModal = () => {
+    if (isAdjusting) {
+      return;
+    }
+    setAdjustMode(null);
+    setAdjustQty("");
+    setAdjustError(null);
+    setAdjustValidationError(null);
+  };
+
+  const refreshInventoryAndLogs = async (targetId: string) => {
+    const [inventoryResult, logsResult] = await Promise.all([
+      supabase
+        .from("inventory")
+        .select("product_id, stock")
+        .eq("product_id", targetId)
+        .maybeSingle(),
+      supabase
+        .from("inventory_logs")
+        .select("id, created_at, delta, before_stock, after_stock")
+        .eq("product_id", targetId)
+        .order("created_at", { ascending: false })
+        .limit(20),
+    ]);
+
+    if (inventoryResult.error || logsResult.error) {
+      if (inventoryResult.error) {
+        console.error("Failed to fetch inventory", inventoryResult.error);
+      }
+      if (logsResult.error) {
+        console.error("Failed to fetch inventory logs", logsResult.error);
+      }
+      return false;
+    }
+
+    setStock((inventoryResult.data as InventoryRow | null)?.stock ?? 0);
+    setLogs(logsResult.data ?? []);
+    return true;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -401,6 +557,53 @@ export default function ProductDetailPage() {
 
   const zoneLabel = zoneName ?? "구역 미지정";
 
+  const handleAdjustConfirm = async () => {
+    if (!hasValidId || !productId || !adjustMode) {
+      setAdjustError("재고 조정에 실패했어요.");
+      return;
+    }
+
+    const normalized = adjustQty.trim();
+    if (!/^\d+$/.test(normalized)) {
+      setAdjustValidationError("수량을 올바르게 입력해 주세요.");
+      return;
+    }
+
+    const quantity = Number(normalized);
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      setAdjustValidationError("수량을 올바르게 입력해 주세요.");
+      return;
+    }
+
+    setAdjustValidationError(null);
+    setAdjustError(null);
+    setIsAdjusting(true);
+
+    const delta = adjustMode === "in" ? quantity : -quantity;
+    const { error } = await supabase.rpc("adjust_stock", {
+      p_product_id: productId,
+      p_delta: delta,
+      p_note: null,
+    });
+
+    if (error) {
+      console.error("Failed to adjust stock", error);
+      setAdjustError(getAdjustErrorMessage(error));
+      setIsAdjusting(false);
+      return;
+    }
+
+    const refreshed = await refreshInventoryAndLogs(productId);
+    setIsAdjusting(false);
+    setAdjustMode(null);
+    setAdjustQty("");
+    setAdjustValidationError(null);
+
+    if (!refreshed) {
+      setAdjustError("재고 정보를 갱신하지 못했어요.");
+    }
+  };
+
   const handleLogout = async () => {
     setSignOutError(null);
     const { error } = await signOut();
@@ -465,6 +668,27 @@ export default function ProductDetailPage() {
             <div style={cardStyle}>
               <p style={labelStyle}>현재 재고</p>
               <p style={stockValueStyle}>재고 {stock}</p>
+              <div style={actionRowStyle}>
+                <button
+                  type="button"
+                  style={actionButtonStyle}
+                  onClick={() => openAdjustModal("in")}
+                  disabled={isAdjusting}
+                >
+                  입고
+                </button>
+                <button
+                  type="button"
+                  style={actionButtonAltStyle}
+                  onClick={() => openAdjustModal("out")}
+                  disabled={isAdjusting}
+                >
+                  출고
+                </button>
+              </div>
+              {adjustMode ? null : adjustError ? (
+                <p style={helperTextStyle}>{adjustError}</p>
+              ) : null}
             </div>
 
             <section style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -488,6 +712,57 @@ export default function ProductDetailPage() {
               )}
             </section>
           </>
+        ) : null}
+        {adjustMode ? (
+          <div style={modalOverlayStyle}>
+            <div
+              style={modalCardStyle}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="adjust-title"
+            >
+              <h2 id="adjust-title" style={modalTitleStyle}>
+                {adjustMode === "in" ? "입고 수량" : "출고 수량"}
+              </h2>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={adjustQty}
+                onChange={(event) => {
+                  setAdjustQty(event.currentTarget.value);
+                  if (adjustValidationError) {
+                    setAdjustValidationError(null);
+                  }
+                }}
+                placeholder="수량"
+                aria-label="수량 입력"
+                style={modalInputStyle}
+              />
+              {adjustValidationError ? (
+                <p style={helperTextStyle}>{adjustValidationError}</p>
+              ) : null}
+              {adjustError ? <p style={helperTextStyle}>{adjustError}</p> : null}
+              <div style={modalButtonRowStyle}>
+                <button
+                  type="button"
+                  style={modalCancelStyle}
+                  onClick={closeAdjustModal}
+                  disabled={isAdjusting}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  style={modalConfirmStyle}
+                  onClick={handleAdjustConfirm}
+                  disabled={isAdjusting}
+                >
+                  {isAdjusting ? "처리 중..." : "확인"}
+                </button>
+              </div>
+            </div>
+          </div>
         ) : null}
       </div>
     </div>

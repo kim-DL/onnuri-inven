@@ -21,6 +21,8 @@ type Product = {
   name: string;
   manufacturer: string | null;
   zone_id: string | null;
+  expiry_date: string | null;
+  photo_url: string | null;
 };
 
 type InventoryRow = {
@@ -112,17 +114,59 @@ const cardStyle: CSSProperties = {
   gap: "8px",
 };
 
+const cardContentStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "64px minmax(0, 1fr) auto",
+  gap: "12px",
+  alignItems: "center",
+};
+
+const thumbnailStyle: CSSProperties = {
+  width: "64px",
+  height: "64px",
+  borderRadius: "12px",
+  border: "1px solid #E3DED8",
+  background: "#F1EDE7",
+  position: "relative",
+  overflow: "hidden",
+  flexShrink: 0,
+};
+
+const thumbnailPlaceholderStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: "12px",
+  color: "#8C847D",
+  fontWeight: 600,
+  textAlign: "center",
+};
+
+const thumbnailImageStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+  display: "block",
+};
+
+const cardTextStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "4px",
+  minWidth: 0,
+};
+
 const cardTitleStyle: CSSProperties = {
   fontSize: "16px",
   fontWeight: 700,
   margin: 0,
-};
-
-const cardRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "12px",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 };
 
 const cardRowLeftStyle: CSSProperties = {
@@ -136,12 +180,43 @@ const cardRowLeftStyle: CSSProperties = {
   textOverflow: "ellipsis",
 };
 
+const cardRightStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-end",
+  gap: "4px",
+  flexShrink: 0,
+};
+
 const cardRowRightStyle: CSSProperties = {
   fontSize: "13px",
   color: "#5A514B",
   margin: 0,
   whiteSpace: "nowrap",
   flexShrink: 0,
+};
+
+const badgeBaseStyle: CSSProperties = {
+  fontSize: "11px",
+  fontWeight: 600,
+  padding: "2px 8px",
+  borderRadius: "999px",
+  border: "1px solid transparent",
+  whiteSpace: "nowrap",
+};
+
+const badgeExpiredStyle: CSSProperties = {
+  ...badgeBaseStyle,
+  color: "#B42318",
+  background: "#FEE4E2",
+  borderColor: "#FECDCA",
+};
+
+const badgeWarningStyle: CSSProperties = {
+  ...badgeBaseStyle,
+  color: "#B54708",
+  background: "#FEF0C7",
+  borderColor: "#FEDF89",
 };
 
 const helperTextStyle: CSSProperties = {
@@ -214,6 +289,47 @@ const floatingAddButtonStyle: CSSProperties = {
   zIndex: 10,
 };
 
+const EXPIRY_WARNING_DAYS = 100;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function getDaysLeft(dateValue: string) {
+  const parts = dateValue.split("-");
+  if (parts.length !== 3) {
+    return null;
+  }
+  const [yearRaw, monthRaw, dayRaw] = parts;
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return null;
+  }
+
+  const targetDate = new Date(year, month - 1, day);
+  if (Number.isNaN(targetDate.getTime())) {
+    return null;
+  }
+  if (
+    targetDate.getFullYear() !== year ||
+    targetDate.getMonth() !== month - 1 ||
+    targetDate.getDate() !== day
+  ) {
+    return null;
+  }
+
+  const now = new Date();
+  const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.floor((targetDate.getTime() - todayLocal.getTime()) / MS_PER_DAY);
+}
 function normalizeZoneParam(zoneParam: string | null): string | null {
   if (!zoneParam) {
     return null;
@@ -346,7 +462,7 @@ export default function ProductsPage() {
         supabase.from("zones").select("id, name").order("sort_order"),
         supabase
           .from("products")
-          .select("id, name, manufacturer, zone_id")
+          .select("id, name, manufacturer, zone_id, expiry_date, photo_url")
           .eq("active", true)
           .order("name"),
         supabase.from("inventory").select("product_id, stock"),
@@ -623,9 +739,30 @@ export default function ProductsPage() {
                   const zoneName = product.zone_id
                     ? zoneNameById.get(product.zone_id)
                     : null;
-                  const manufacturer = product.manufacturer ?? "제조사 미입력";
+                  const manufacturer =
+                    product.manufacturer?.trim() || "제조사 미입력";
                   const stock = stockByProductId.get(product.id) ?? 0;
-                  const metaLeft = `${manufacturer} · ${zoneName ?? "구역 미지정"}`;
+                  const expiryDate = product.expiry_date?.trim() ?? "";
+                  const metaParts = [manufacturer, zoneName ?? "구역 미지정"];
+                  if (expiryDate) {
+                    metaParts.push(expiryDate);
+                  }
+                  const metaLeft = metaParts.join(" · ");
+                  const daysLeft = expiryDate ? getDaysLeft(expiryDate) : null;
+                  let expiryBadge: { text: string; style: CSSProperties } | null =
+                    null;
+                  if (daysLeft !== null) {
+                    if (daysLeft < 0) {
+                      expiryBadge = { text: "만료", style: badgeExpiredStyle };
+                    } else if (daysLeft <= EXPIRY_WARNING_DAYS) {
+                      expiryBadge = {
+                        text: `임박 D-${daysLeft}`,
+                        style: badgeWarningStyle,
+                      };
+                    }
+                  }
+                  const photoUrl = product.photo_url?.trim() ?? "";
+                  const hasPhoto = photoUrl.length > 0;
                   const detailHref = `/products/${product.id}${detailQuerySuffix}`;
                   return (
                     <Link
@@ -638,10 +775,34 @@ export default function ProductsPage() {
                       }}
                     >
                       <div style={cardStyle}>
-                        <p style={cardTitleStyle}>{product.name}</p>
-                        <div style={cardRowStyle}>
-                          <p style={cardRowLeftStyle}>{metaLeft}</p>
-                          <p style={cardRowRightStyle}>재고 {stock}</p>
+                        <div style={cardContentStyle}>
+                          <div style={thumbnailStyle}>
+                            <span style={thumbnailPlaceholderStyle}>사진</span>
+                            {hasPhoto ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={photoUrl}
+                                alt={`${product.name} 사진`}
+                                style={thumbnailImageStyle}
+                                loading="lazy"
+                                onError={(event) => {
+                                  event.currentTarget.style.display = "none";
+                                }}
+                              />
+                            ) : null}
+                          </div>
+                          <div style={cardTextStyle}>
+                            <p style={cardTitleStyle}>{product.name}</p>
+                            <p style={cardRowLeftStyle}>{metaLeft}</p>
+                          </div>
+                          <div style={cardRightStyle}>
+                            <p style={cardRowRightStyle}>재고 {stock}</p>
+                            {expiryBadge ? (
+                              <span style={expiryBadge.style}>
+                                {expiryBadge.text}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     </Link>

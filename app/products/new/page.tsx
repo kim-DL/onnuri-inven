@@ -22,7 +22,6 @@ type FormState = {
   spec: string;
   originCountry: string;
   expiryDate: string;
-  photoUrl: string;
   initialQty: string;
 };
 
@@ -163,7 +162,6 @@ const defaultForm: FormState = {
   spec: "",
   originCountry: "",
   expiryDate: "",
-  photoUrl: "",
   initialQty: "0",
 };
 
@@ -354,7 +352,6 @@ export default function NewProductPage() {
       spec: normalizeOptional(formState.spec),
       origin_country: normalizeOptional(formState.originCountry),
       expiry_date: normalizeOptional(formState.expiryDate),
-      photo_url: normalizeOptional(formState.photoUrl),
       active: true,
     };
 
@@ -588,19 +585,6 @@ export default function NewProductPage() {
                   />
                 </div>
 
-                <div style={fieldStyle}>
-                  <label htmlFor="product-photo" style={labelStyle}>
-                    사진 URL
-                  </label>
-                  <input
-                    id="product-photo"
-                    type="url"
-                    value={formState.photoUrl}
-                    onChange={(event) => updateField("photoUrl", event.currentTarget.value)}
-                    placeholder="사진 URL"
-                    style={inputStyle}
-                  />
-                </div>
               </div>
 
               <div style={cardStyle}>

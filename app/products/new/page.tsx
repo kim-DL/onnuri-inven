@@ -532,9 +532,7 @@ export default function NewProductPage() {
       if (uploadError) {
         console.error("Failed to upload product photo", {
           message: uploadError?.message,
-          details: uploadError?.details,
-          hint: uploadError?.hint,
-          code: uploadError?.code,
+
         });
         warnings.push("제품은 저장됐지만 사진 업로드에 실패했어요.");
       } else {
@@ -557,9 +555,7 @@ export default function NewProductPage() {
           if (cleanupError) {
             console.error("Failed to clean up product photo", {
               message: cleanupError?.message,
-              details: cleanupError?.details,
-              hint: cleanupError?.hint,
-              code: cleanupError?.code,
+
             });
           }
         }

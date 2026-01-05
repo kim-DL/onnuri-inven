@@ -50,7 +50,7 @@
 ### 1.4 제품 등록: `/products/new`
 - 등록 페이지 구현
 - 사진 URL 입력란 제거 (현 업무상 불필요)
-- (예정) 사진 촬영 후 저장 시 업로드 연동
+- 사진 촬영/파일 선택 업로드 지원 (1장, `products.photo_url` 저장)
 
 ### 1.5 설정: `/settings`
 - 임박 기준값 `expiry_warning_days` 관리

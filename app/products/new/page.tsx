@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { CSSProperties, FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ChangeEvent, CSSProperties, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseClient";
@@ -67,6 +67,58 @@ const cardStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "12px",
+};
+
+const photoSlotStyle: CSSProperties = {
+  width: "160px",
+  height: "160px",
+  borderRadius: "12px",
+  border: "1px solid #E3DED8",
+  background: "#F1EDE7",
+  overflow: "hidden",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  alignSelf: "flex-start",
+};
+
+const photoPlaceholderStyle: CSSProperties = {
+  fontSize: "14px",
+  color: "#8C847D",
+  fontWeight: 600,
+  textAlign: "center",
+};
+
+const photoImageStyle: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+  display: "block",
+};
+
+const photoActionRowStyle: CSSProperties = {
+  display: "flex",
+  gap: "8px",
+  flexWrap: "wrap",
+};
+
+const photoActionButtonStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 12px",
+  borderRadius: "999px",
+  border: "1px solid #D6D2CC",
+  background: "#FFFFFF",
+  color: "#2E2A27",
+  fontSize: "13px",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const photoRemoveButtonStyle: CSSProperties = {
+  ...photoActionButtonStyle,
+  color: "#B42318",
+  border: "1px solid #E3DED8",
 };
 
 const sectionTitleStyle: CSSProperties = {
@@ -170,6 +222,33 @@ function normalizeOptional(value: string) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function getPhotoExtension(file: File) {
+  const type = file.type.toLowerCase();
+  if (type === "image/jpeg" || type === "image/jpg") {
+    return "jpg";
+  }
+  if (type === "image/png") {
+    return "png";
+  }
+  if (type === "image/webp") {
+    return "webp";
+  }
+  if (type === "image/heic") {
+    return "heic";
+  }
+  if (type === "image/heif") {
+    return "heif";
+  }
+  const match = file.name.toLowerCase().match(/\.([a-z0-9]+)$/);
+  return match?.[1] ?? "jpg";
+}
+
+function buildPhotoPath(productId: string, file: File) {
+  const extension = getPhotoExtension(file);
+  const fileId = crypto.randomUUID();
+  return `products/${productId}/${fileId}.${extension}`;
+}
+
 export default function NewProductPage() {
   const router = useRouter();
   const [authState, setAuthState] = useState<AuthState>("checking");
@@ -183,6 +262,10 @@ export default function NewProductPage() {
   const [submitWarning, setSubmitWarning] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -302,8 +385,55 @@ export default function NewProductPage() {
     [zones]
   );
 
+  useEffect(() => {
+    return () => {
+      if (photoPreviewUrl) {
+        URL.revokeObjectURL(photoPreviewUrl);
+      }
+    };
+  }, [photoPreviewUrl]);
+
   const updateField = (field: keyof FormState, value: string) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handlePhotoPick = () => {
+    if (isSubmitting) {
+      return;
+    }
+    setPhotoError(null);
+    photoInputRef.current?.click();
+  };
+
+  const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) {
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("이미지 파일만 업로드할 수 있어요.");
+      return;
+    }
+    if (photoPreviewUrl) {
+      URL.revokeObjectURL(photoPreviewUrl);
+    }
+    const nextUrl = URL.createObjectURL(file);
+    setPhotoFile(file);
+    setPhotoPreviewUrl(nextUrl);
+    setPhotoError(null);
+  };
+
+  const handlePhotoRemove = () => {
+    if (isSubmitting) {
+      return;
+    }
+    if (photoPreviewUrl) {
+      URL.revokeObjectURL(photoPreviewUrl);
+    }
+    setPhotoFile(null);
+    setPhotoPreviewUrl(null);
+    setPhotoError(null);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -343,6 +473,7 @@ export default function NewProductPage() {
     setSubmitError(null);
     setSubmitWarning(null);
     setIsSubmitting(true);
+    const warnings: string[] = [];
 
     const payload = {
       name: trimmedName,
@@ -388,11 +519,58 @@ export default function NewProductPage() {
 
       if (adjustError) {
         console.error("Failed to adjust stock", adjustError);
-        setSubmitWarning("상품은 저장됐지만 초기 재고 등록에 실패했어요.");
+        warnings.push("제품은 저장됐지만 초기 재고 등록에 실패했어요.");
+      }
+    }
+
+    if (photoFile) {
+      const photoPath = buildPhotoPath(productData.id, photoFile);
+      const { error: uploadError } = await supabase.storage
+        .from("product-photos")
+        .upload(photoPath, photoFile, { upsert: false });
+
+      if (uploadError) {
+        console.error("Failed to upload product photo", {
+          message: uploadError?.message,
+          details: uploadError?.details,
+          hint: uploadError?.hint,
+          code: uploadError?.code,
+        });
+        warnings.push("제품은 저장됐지만 사진 업로드에 실패했어요.");
+      } else {
+        const { error: updateError } = await supabase
+          .from("products")
+          .update({ photo_url: photoPath })
+          .eq("id", productData.id);
+
+        if (updateError) {
+          console.error("Failed to update product photo", {
+            message: updateError?.message,
+            details: updateError?.details,
+            hint: updateError?.hint,
+            code: updateError?.code,
+          });
+          warnings.push("제품은 저장됐지만 사진 연결에 실패했어요.");
+          const { error: cleanupError } = await supabase.storage
+            .from("product-photos")
+            .remove([photoPath]);
+          if (cleanupError) {
+            console.error("Failed to clean up product photo", {
+              message: cleanupError?.message,
+              details: cleanupError?.details,
+              hint: cleanupError?.hint,
+              code: cleanupError?.code,
+            });
+          }
+        }
       }
     }
 
     setIsSubmitting(false);
+    setPhotoFile(null);
+    setPhotoPreviewUrl(null);
+    setPhotoError(null);
+    setSubmitWarning(warnings.length > 0 ? warnings.join(" ") : null);
     setIsSuccess(true);
   };
 
@@ -402,6 +580,9 @@ export default function NewProductPage() {
     setSubmitError(null);
     setSubmitWarning(null);
     setIsSuccess(false);
+    setPhotoFile(null);
+    setPhotoPreviewUrl(null);
+    setPhotoError(null);
   };
 
   const handleLogout = async () => {
@@ -467,7 +648,64 @@ export default function NewProductPage() {
               </p>
             </header>
 
-            <form style={{ display: "flex", flexDirection: "column", gap: "16px" }} onSubmit={handleSubmit}>
+            <form
+              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+              onSubmit={handleSubmit}
+            >
+              <div style={cardStyle}>
+                <h2 style={sectionTitleStyle}>사진</h2>
+                <div
+                  style={photoSlotStyle}
+                  role="button"
+                  tabIndex={0}
+                  aria-label="사진 선택"
+                  onClick={handlePhotoPick}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handlePhotoPick();
+                    }
+                  }}
+                >
+                  {photoPreviewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photoPreviewUrl}
+                      alt="선택된 사진"
+                      style={photoImageStyle}
+                    />
+                  ) : (
+                    <span style={photoPlaceholderStyle}>사진</span>
+                  )}
+                </div>
+                <div style={photoActionRowStyle}>
+                  <button
+                    type="button"
+                    style={photoActionButtonStyle}
+                    onClick={handlePhotoPick}
+                    disabled={isSubmitting}
+                  >
+                    사진 선택
+                  </button>
+                  <button
+                    type="button"
+                    style={photoRemoveButtonStyle}
+                    onClick={handlePhotoRemove}
+                    disabled={isSubmitting || !photoFile}
+                  >
+                    사진 제거
+                  </button>
+                </div>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handlePhotoChange}
+                  style={{ display: "none" }}
+                />
+                {photoError ? <p style={helperTextStyle}>{photoError}</p> : null}
+              </div>
               <div style={cardStyle}>
                 <h2 style={sectionTitleStyle}>기본 정보</h2>
                 <div style={fieldStyle}>

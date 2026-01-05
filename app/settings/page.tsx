@@ -102,6 +102,13 @@ const cardTitleStyle: CSSProperties = {
   margin: 0,
 };
 
+const sectionTitleStyle: CSSProperties = {
+  fontSize: "14px",
+  fontWeight: 600,
+  margin: 0,
+  color: "#2E2A27",
+};
+
 const userListStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -172,6 +179,12 @@ const statusBadgeInactiveStyle: CSSProperties = {
   background: "#FEE4E2",
   borderColor: "#FECDCA",
   color: "#B42318",
+};
+
+const dividerStyle: CSSProperties = {
+  height: "1px",
+  background: "#E8E2DB",
+  width: "100%",
 };
 
 const fieldStyle: CSSProperties = {
@@ -283,6 +296,19 @@ function formatDateLabel(value: string | null) {
   return `${year}-${month}-${day}`;
 }
 
+function normalizeUserProfiles(
+  rawRows: AdminUserProfileRpcRow[] | null
+): UserProfileRow[] {
+  const rows = rawRows ?? [];
+  return rows.map((row) => ({
+    user_id: row.user_id,
+    display_name: row.display_name ?? null,
+    role: row.role ?? null,
+    is_active: row.is_active ?? row.active ?? null,
+    created_at: row.created_at ?? null,
+  }));
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -311,6 +337,12 @@ export default function SettingsPage() {
     useState<UserActionState | null>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
+  const [createName, setCreateName] = useState("");
+  const [createEmail, setCreateEmail] = useState("");
+  const [createPassword, setCreatePassword] = useState("");
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createSuccess, setCreateSuccess] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -452,14 +484,9 @@ export default function SettingsPage() {
         return;
       }
 
-      const rawRows = (data as AdminUserProfileRpcRow[] | null) ?? [];
-      const normalized = rawRows.map((row) => ({
-        user_id: row.user_id,
-        display_name: row.display_name ?? null,
-        role: row.role ?? null,
-        is_active: row.is_active ?? row.active ?? null,
-        created_at: row.created_at ?? null,
-      }));
+      const normalized = normalizeUserProfiles(
+        data as AdminUserProfileRpcRow[] | null
+      );
 
       setUserProfiles(normalized);
       setUserListState("ready");
@@ -673,6 +700,110 @@ export default function SettingsPage() {
     setUserActionState(null);
   };
 
+  const handleCreateStaff = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!isAdmin || isCreating) {
+      return;
+    }
+
+    setCreateError(null);
+    setCreateSuccess(null);
+
+    const displayName = createName.trim();
+    const email = createEmail.trim().toLowerCase();
+    const password = createPassword;
+
+    if (!displayName || !email || !password) {
+      setCreateError("All fields are required.");
+      return;
+    }
+
+    setIsCreating(true);
+
+    const { data: sessionData, error: sessionError } =
+      await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+
+    if (sessionError || !accessToken) {
+      setCreateError("Session expired. Please sign in again.");
+      setIsCreating(false);
+      return;
+    }
+
+    let response: Response;
+    try {
+      response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          display_name: displayName,
+          email,
+          password,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to create user", error);
+      setCreateError("Unable to create user.");
+      setIsCreating(false);
+      return;
+    }
+
+    let payload: { ok?: boolean; error?: string } | null = null;
+    try {
+      payload = (await response.json()) as { ok?: boolean; error?: string };
+    } catch (error) {
+      console.error("Failed to parse create user response", error);
+    }
+
+    if (!response.ok || !payload?.ok) {
+      const errorCode = payload?.error ?? "";
+      if (response.status === 401 || errorCode === "unauthorized") {
+        setCreateError("Session expired. Please sign in again.");
+      } else if (response.status === 403 || errorCode === "forbidden") {
+        setCreateError("Admin only.");
+      } else if (errorCode === "duplicate_email") {
+        setCreateError("Email already exists.");
+      } else if (errorCode === "weak_password") {
+        setCreateError("Password is too weak.");
+      } else if (errorCode === "invalid_email") {
+        setCreateError("Invalid email.");
+      } else if (errorCode === "missing_fields") {
+        setCreateError("All fields are required.");
+      } else {
+        setCreateError("Unable to create user.");
+      }
+      setIsCreating(false);
+      return;
+    }
+
+    setCreateSuccess("Staff user created.");
+    setCreatePassword("");
+
+    setUserListState("loading");
+    setUserListError(null);
+
+    const { data, error: listError } = await supabase.rpc(
+      "admin_list_user_profiles"
+    );
+
+    if (listError) {
+      console.error("Failed to refresh user list", listError);
+      setUserListError("Unable to load users.");
+      setUserListState("error");
+    } else {
+      setUserProfiles(
+        normalizeUserProfiles(data as AdminUserProfileRpcRow[] | null)
+      );
+      setUserListState("ready");
+    }
+
+    setIsCreating(false);
+  };
+
   const handleLogout = async () => {
     setSignOutError(null);
     const { error } = await signOut();
@@ -789,6 +920,83 @@ export default function SettingsPage() {
                   {userActionSuccess ? (
                     <p style={helperTextStyle}>{userActionSuccess}</p>
                   ) : null}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    <h3 style={sectionTitleStyle}>Create Staff</h3>
+                    <form
+                      onSubmit={handleCreateStaff}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "10px",
+                      }}
+                    >
+                      <div style={fieldStyle}>
+                        <label htmlFor="create-name" style={labelStyle}>
+                          Display name
+                        </label>
+                        <input
+                          id="create-name"
+                          type="text"
+                          value={createName}
+                          onChange={(event) =>
+                            setCreateName(event.currentTarget.value)
+                          }
+                          style={compactInputStyle}
+                          autoComplete="name"
+                          disabled={isCreating}
+                          required
+                        />
+                      </div>
+                      <div style={fieldStyle}>
+                        <label htmlFor="create-email" style={labelStyle}>
+                          Email
+                        </label>
+                        <input
+                          id="create-email"
+                          type="email"
+                          value={createEmail}
+                          onChange={(event) =>
+                            setCreateEmail(event.currentTarget.value)
+                          }
+                          style={compactInputStyle}
+                          autoComplete="email"
+                          disabled={isCreating}
+                          required
+                        />
+                      </div>
+                      <div style={fieldStyle}>
+                        <label htmlFor="create-password" style={labelStyle}>
+                          Password
+                        </label>
+                        <input
+                          id="create-password"
+                          type="password"
+                          value={createPassword}
+                          onChange={(event) =>
+                            setCreatePassword(event.currentTarget.value)
+                          }
+                          style={compactInputStyle}
+                          autoComplete="new-password"
+                          disabled={isCreating}
+                          required
+                        />
+                      </div>
+                      {createError ? (
+                        <p style={helperTextStyle}>{createError}</p>
+                      ) : null}
+                      {createSuccess ? (
+                        <p style={helperTextStyle}>{createSuccess}</p>
+                      ) : null}
+                      <button
+                        type="submit"
+                        style={buttonStyle}
+                        disabled={isCreating}
+                      >
+                        {isCreating ? "Creating..." : "Create Staff"}
+                      </button>
+                    </form>
+                  </div>
+                  <div style={dividerStyle} />
                   {isUserListLoading ? (
                     <SkeletonUserList />
                   ) : userListState === "error" ? (

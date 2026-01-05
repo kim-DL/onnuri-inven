@@ -248,6 +248,12 @@ const helperTextStyle: CSSProperties = {
   margin: 0,
 };
 
+const subtleTextStyle: CSSProperties = {
+  fontSize: "12px",
+  color: "#7B736C",
+  margin: 0,
+};
+
 const skeletonBlockStyle: CSSProperties = {
   background: "#E7E3DD",
   borderRadius: "10px",
@@ -312,7 +318,7 @@ const floatingAddButtonStyle: CSSProperties = {
   zIndex: 10,
 };
 
-const EXPIRY_WARNING_DAYS = 100;
+const DEFAULT_EXPIRY_WARNING_DAYS = 100;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function getDaysLeft(dateValue: string) {
@@ -388,6 +394,9 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [stockByProductId, setStockByProductId] = useState<Map<string, number>>(
     new Map()
+  );
+  const [expiryWarningDays, setExpiryWarningDays] = useState(
+    DEFAULT_EXPIRY_WARNING_DAYS
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
@@ -481,15 +490,17 @@ export default function ProductsPage() {
       setDataState("loading");
       setErrorMessage(null);
 
-      const [zonesResult, productsResult, inventoryResult] = await Promise.all([
-        supabase.from("zones").select("id, name").order("sort_order"),
-        supabase
-          .from("products")
-          .select("id, name, manufacturer, zone_id, expiry_date, photo_url")
-          .eq("active", true)
-          .order("name"),
-        supabase.from("inventory").select("product_id, stock"),
-      ]);
+      const [zonesResult, productsResult, inventoryResult, expiryResult] =
+        await Promise.all([
+          supabase.from("zones").select("id, name").order("sort_order"),
+          supabase
+            .from("products")
+            .select("id, name, manufacturer, zone_id, expiry_date, photo_url")
+            .eq("active", true)
+            .order("name"),
+          supabase.from("inventory").select("product_id, stock"),
+          supabase.rpc("get_expiry_warning_days"),
+        ]);
 
       if (cancelled) {
         return;
@@ -508,6 +519,15 @@ export default function ProductsPage() {
         setErrorMessage("상품 목록을 불러오지 못했어요.");
         setDataState("error");
         return;
+      }
+
+      if (expiryResult.error) {
+        console.error("Failed to fetch expiry warning days", expiryResult.error);
+        setExpiryWarningDays(DEFAULT_EXPIRY_WARNING_DAYS);
+      } else if (typeof expiryResult.data === "number") {
+        setExpiryWarningDays(expiryResult.data);
+      } else {
+        setExpiryWarningDays(DEFAULT_EXPIRY_WARNING_DAYS);
       }
 
       const stockMap = new Map<string, number>();
@@ -577,6 +597,7 @@ export default function ProductsPage() {
   const archivedHref = detailQuery
     ? `/products/archived?${detailQuery}`
     : "/products/archived";
+  const settingsHref = detailQuery ? `/settings?${detailQuery}` : "/settings";
 
   const updateSearchParams = useCallback(
     (updates: { zone?: string | null; q?: string }) => {
@@ -677,6 +698,9 @@ export default function ProductsPage() {
           <h1 style={titleStyle}>상품 목록</h1>
           {authState !== "blocked" ? (
             <div style={headerActionRowStyle}>
+              <Link href={settingsHref} style={archivedLinkStyle}>
+                설정
+              </Link>
               <Link href={archivedHref} style={archivedLinkStyle}>
                 비활성화 목록
               </Link>
@@ -688,6 +712,9 @@ export default function ProductsPage() {
         </header>
         {authState !== "blocked" && signOutError ? (
           <p style={helperTextStyle}>{signOutError}</p>
+        ) : null}
+        {authState !== "blocked" ? (
+          <p style={subtleTextStyle}>임박 기준: D-{expiryWarningDays}</p>
         ) : null}
 
         {authState === "blocked" ? (
@@ -777,7 +804,7 @@ export default function ProductsPage() {
                   if (daysLeft !== null) {
                     if (daysLeft < 0) {
                       expiryBadge = { text: "만료", style: badgeExpiredStyle };
-                    } else if (daysLeft <= EXPIRY_WARNING_DAYS) {
+                    } else if (daysLeft <= expiryWarningDays) {
                       expiryBadge = {
                         text: `임박 D-${daysLeft}`,
                         style: badgeWarningStyle,

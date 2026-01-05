@@ -9,6 +9,25 @@ import { supabase } from "@/lib/supabaseClient";
 
 type AuthState = "checking" | "authed" | "blocked" | "error";
 type DataState = "idle" | "loading" | "ready" | "error";
+type AdminUserProfileRpcRow = {
+  user_id: string;
+  display_name: string | null;
+  role: string | null;
+  is_active?: boolean | null;
+  active?: boolean | null;
+  created_at?: string | null;
+};
+type UserProfileRow = {
+  user_id: string;
+  display_name: string | null;
+  role: string | null;
+  is_active: boolean | null;
+  created_at: string | null;
+};
+type UserActionState = {
+  userId: string;
+  type: "toggle" | "rename";
+};
 
 const DEFAULT_EXPIRY_WARNING_DAYS = 100;
 
@@ -77,6 +96,84 @@ const cardStyle: CSSProperties = {
   gap: "12px",
 };
 
+const cardTitleStyle: CSSProperties = {
+  fontSize: "16px",
+  fontWeight: 700,
+  margin: 0,
+};
+
+const userListStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
+};
+
+const userRowStyle: CSSProperties = {
+  padding: "12px",
+  borderRadius: "10px",
+  border: "1px solid #E8E2DB",
+  background: "#FBFAF8",
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px",
+};
+
+const userHeaderRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "8px",
+};
+
+const userNameStyle: CSSProperties = {
+  fontSize: "15px",
+  fontWeight: 600,
+  margin: 0,
+};
+
+const userMetaStyle: CSSProperties = {
+  fontSize: "13px",
+  color: "#5A514B",
+  margin: 0,
+};
+
+const userMetaSmallStyle: CSSProperties = {
+  fontSize: "12px",
+  color: "#7B736C",
+  margin: 0,
+};
+
+const userActionRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "8px",
+};
+
+const statusBadgeStyle: CSSProperties = {
+  fontSize: "11px",
+  fontWeight: 600,
+  padding: "2px 8px",
+  borderRadius: "999px",
+  border: "1px solid #D6D2CC",
+  background: "#FFFFFF",
+  color: "#2E2A27",
+  whiteSpace: "nowrap",
+};
+
+const statusBadgeActiveStyle: CSSProperties = {
+  ...statusBadgeStyle,
+  background: "#ECFDF3",
+  borderColor: "#ABEFC6",
+  color: "#067647",
+};
+
+const statusBadgeInactiveStyle: CSSProperties = {
+  ...statusBadgeStyle,
+  background: "#FEE4E2",
+  borderColor: "#FECDCA",
+  color: "#B42318",
+};
+
 const fieldStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -97,6 +194,11 @@ const inputStyle: CSSProperties = {
   border: "1px solid #D6D2CC",
   fontSize: "15px",
   background: "#FFFFFF",
+};
+
+const compactInputStyle: CSSProperties = {
+  ...inputStyle,
+  fontSize: "14px",
 };
 
 const buttonStyle: CSSProperties = {
@@ -153,6 +255,34 @@ function SkeletonSettings() {
   );
 }
 
+function SkeletonUserList() {
+  return (
+    <div style={userListStyle}>
+      {[0, 1, 2].map((item) => (
+        <div key={item} style={{ ...userRowStyle, border: "none" }}>
+          <div style={{ ...skeletonBlockStyle, height: "16px", width: "40%" }} />
+          <div style={{ ...skeletonBlockStyle, height: "12px", width: "55%" }} />
+          <div style={{ ...skeletonBlockStyle, height: "12px", width: "30%" }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function formatDateLabel(value: string | null) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -171,6 +301,16 @@ export default function SettingsPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [userListState, setUserListState] = useState<DataState>("idle");
+  const [userProfiles, setUserProfiles] = useState<UserProfileRow[]>([]);
+  const [userListError, setUserListError] = useState<string | null>(null);
+  const [userActionError, setUserActionError] = useState<string | null>(null);
+  const [userActionSuccess, setUserActionSuccess] = useState<string | null>(null);
+  const [userActionState, setUserActionState] =
+    useState<UserActionState | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -179,6 +319,7 @@ export default function SettingsPage() {
       setAuthState("checking");
       setErrorMessage(null);
       setProfileRole(null);
+      setCurrentUserId(null);
 
       const { user, error: sessionError } = await getSessionUser();
       if (cancelled) {
@@ -196,6 +337,8 @@ export default function SettingsPage() {
         router.replace("/login");
         return;
       }
+
+      setCurrentUserId(user.id);
 
       const { profile, error: profileError } = await getUserProfile(user.id);
       if (cancelled) {
@@ -284,6 +427,51 @@ export default function SettingsPage() {
     };
   }, [authState]);
 
+  useEffect(() => {
+    if (authState !== "authed" || profileRole !== "admin") {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadUserProfiles = async () => {
+      setUserListState("loading");
+      setUserListError(null);
+      setUserActionError(null);
+      setUserActionSuccess(null);
+
+      const { data, error } = await supabase.rpc("admin_list_user_profiles");
+      if (cancelled) {
+        return;
+      }
+
+      if (error) {
+        console.error("Failed to fetch user profiles", error);
+        setUserListError("Unable to load users.");
+        setUserListState("error");
+        return;
+      }
+
+      const rawRows = (data as AdminUserProfileRpcRow[] | null) ?? [];
+      const normalized = rawRows.map((row) => ({
+        user_id: row.user_id,
+        display_name: row.display_name ?? null,
+        role: row.role ?? null,
+        is_active: row.is_active ?? row.active ?? null,
+        created_at: row.created_at ?? null,
+      }));
+
+      setUserProfiles(normalized);
+      setUserListState("ready");
+    };
+
+    loadUserProfiles();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authState, profileRole]);
+
   const isLoading =
     authState === "checking" ||
     (authState === "authed" && (dataState === "idle" || dataState === "loading"));
@@ -292,6 +480,9 @@ export default function SettingsPage() {
     authState === "error" || (authState === "authed" && dataState === "error");
 
   const isAdmin = profileRole === "admin";
+  const isUserMutating = userActionState !== null;
+  const isUserListLoading =
+    userListState === "idle" || userListState === "loading";
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -346,6 +537,140 @@ export default function SettingsPage() {
     setInputValue(String(nextValue));
     setSaveSuccess("저장했어요.");
     setIsSaving(false);
+  };
+
+  const handleToggleUserActive = async (profile: UserProfileRow) => {
+    if (!isAdmin || isUserMutating) {
+      return;
+    }
+
+    const isActive = profile.is_active ?? false;
+    const nextActive = !isActive;
+
+    setUserActionError(null);
+    setUserActionSuccess(null);
+    setUserActionState({ userId: profile.user_id, type: "toggle" });
+
+    const { error } = await supabase.rpc("admin_set_user_active", {
+      p_user_id: profile.user_id,
+      p_is_active: nextActive,
+    });
+
+    if (error) {
+      console.error("Failed to update user active status", {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+      });
+      const message = error?.message?.toLowerCase() ?? "";
+      if (message.includes("not authenticated")) {
+        setUserActionError("Session expired. Please sign in again.");
+      } else if (message.includes("admin only")) {
+        setUserActionError("Admin only.");
+      } else if (message.includes("self")) {
+        setUserActionError("You cannot deactivate your own account.");
+      } else {
+        setUserActionError("Unable to update active status.");
+      }
+      setUserActionState(null);
+      return;
+    }
+
+    setUserProfiles((prev) =>
+      prev.map((row) =>
+        row.user_id === profile.user_id
+          ? { ...row, is_active: nextActive }
+          : row
+      )
+    );
+    setUserActionSuccess(nextActive ? "User activated." : "User deactivated.");
+    setUserActionState(null);
+  };
+
+  const startEditDisplayName = (profile: UserProfileRow) => {
+    if (!isAdmin || isUserMutating) {
+      return;
+    }
+    setEditingUserId(profile.user_id);
+    setNameDrafts((prev) => ({
+      ...prev,
+      [profile.user_id]: profile.display_name ?? "",
+    }));
+    setUserActionError(null);
+    setUserActionSuccess(null);
+  };
+
+  const cancelEditDisplayName = () => {
+    if (isUserMutating) {
+      return;
+    }
+    setEditingUserId(null);
+  };
+
+  const handleDisplayNameChange = (userId: string, value: string) => {
+    setNameDrafts((prev) => ({ ...prev, [userId]: value }));
+  };
+
+  const handleSaveDisplayName = async (profile: UserProfileRow) => {
+    if (!isAdmin || isUserMutating) {
+      return;
+    }
+
+    const draft = nameDrafts[profile.user_id] ?? "";
+    const trimmed = draft.trim();
+    if (!trimmed) {
+      setUserActionError("Display name is required.");
+      return;
+    }
+
+    const current = profile.display_name?.trim() ?? "";
+    if (trimmed === current) {
+      setEditingUserId(null);
+      return;
+    }
+
+    setUserActionError(null);
+    setUserActionSuccess(null);
+    setUserActionState({ userId: profile.user_id, type: "rename" });
+
+    const { error } = await supabase.rpc("admin_set_user_display_name", {
+      p_user_id: profile.user_id,
+      p_display_name: trimmed,
+    });
+
+    if (error) {
+      console.error("Failed to update user display name", {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+      });
+      const message = error?.message?.toLowerCase() ?? "";
+      if (message.includes("not authenticated")) {
+        setUserActionError("Session expired. Please sign in again.");
+      } else if (message.includes("admin only")) {
+        setUserActionError("Admin only.");
+      } else if (message.includes("invalid")) {
+        setUserActionError("Display name is invalid.");
+      } else {
+        setUserActionError("Unable to update display name.");
+      }
+      setUserActionState(null);
+      return;
+    }
+
+    setUserProfiles((prev) =>
+      prev.map((row) =>
+        row.user_id === profile.user_id
+          ? { ...row, display_name: trimmed }
+          : row
+      )
+    );
+    setNameDrafts((prev) => ({ ...prev, [profile.user_id]: trimmed }));
+    setEditingUserId(null);
+    setUserActionSuccess("Display name updated.");
+    setUserActionState(null);
   };
 
   const handleLogout = async () => {
@@ -451,6 +776,151 @@ export default function SettingsPage() {
                   <p style={helperTextStyle}>관리자만 변경할 수 있어요.</p>
                 )}
               </form>
+            </div>
+            <div style={cardStyle}>
+              <h2 style={cardTitleStyle}>User Management</h2>
+              {!isAdmin ? (
+                <p style={helperTextStyle}>Admin only.</p>
+              ) : (
+                <>
+                  {userActionError ? (
+                    <p style={helperTextStyle}>{userActionError}</p>
+                  ) : null}
+                  {userActionSuccess ? (
+                    <p style={helperTextStyle}>{userActionSuccess}</p>
+                  ) : null}
+                  {isUserListLoading ? (
+                    <SkeletonUserList />
+                  ) : userListState === "error" ? (
+                    <p style={helperTextStyle}>
+                      {userListError ?? "Unable to load users."}
+                    </p>
+                  ) : userProfiles.length === 0 ? (
+                    <p style={helperTextStyle}>No users found.</p>
+                  ) : (
+                    <div style={userListStyle}>
+                      {userProfiles.map((profile) => {
+                        const displayName =
+                          profile.display_name?.trim() || "Unnamed";
+                        const roleLabel = profile.role ?? "unknown";
+                        const isActive = profile.is_active ?? false;
+                        const createdLabel = formatDateLabel(
+                          profile.created_at
+                        );
+                        const isEditing = editingUserId === profile.user_id;
+                        const isSelf =
+                          currentUserId && profile.user_id === currentUserId;
+                        const isToggling =
+                          userActionState?.userId === profile.user_id &&
+                          userActionState?.type === "toggle";
+                        const isRenaming =
+                          userActionState?.userId === profile.user_id &&
+                          userActionState?.type === "rename";
+                        const nameInputId = `display-name-${profile.user_id}`;
+
+                        return (
+                          <div key={profile.user_id} style={userRowStyle}>
+                            <div style={userHeaderRowStyle}>
+                              <p style={userNameStyle}>
+                                {displayName}
+                                {isSelf ? " (you)" : ""}
+                              </p>
+                              <span
+                                style={
+                                  isActive
+                                    ? statusBadgeActiveStyle
+                                    : statusBadgeInactiveStyle
+                                }
+                              >
+                                {isActive ? "Active" : "Inactive"}
+                              </span>
+                            </div>
+                            <p style={userMetaStyle}>Role: {roleLabel}</p>
+                            {createdLabel ? (
+                              <p style={userMetaSmallStyle}>
+                                Created: {createdLabel}
+                              </p>
+                            ) : null}
+                            {isEditing ? (
+                              <div style={fieldStyle}>
+                                <label htmlFor={nameInputId} style={labelStyle}>
+                                  Display name
+                                </label>
+                                <input
+                                  id={nameInputId}
+                                  type="text"
+                                  value={
+                                    nameDrafts[profile.user_id] ??
+                                    profile.display_name ??
+                                    ""
+                                  }
+                                  onChange={(event) =>
+                                    handleDisplayNameChange(
+                                      profile.user_id,
+                                      event.currentTarget.value
+                                    )
+                                  }
+                                  style={compactInputStyle}
+                                  disabled={isUserMutating}
+                                />
+                              </div>
+                            ) : null}
+                            <div style={userActionRowStyle}>
+                              {isEditing ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    style={buttonStyle}
+                                    onClick={() =>
+                                      handleSaveDisplayName(profile)
+                                    }
+                                    disabled={isUserMutating}
+                                  >
+                                    {isRenaming ? "Saving..." : "Save"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    style={secondaryButtonStyle}
+                                    onClick={cancelEditDisplayName}
+                                    disabled={isUserMutating}
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    style={secondaryButtonStyle}
+                                    onClick={() =>
+                                      startEditDisplayName(profile)
+                                    }
+                                    disabled={isUserMutating}
+                                  >
+                                    Rename
+                                  </button>
+                                  <button
+                                    type="button"
+                                    style={secondaryButtonStyle}
+                                    onClick={() => handleToggleUserActive(profile)}
+                                    disabled={isUserMutating}
+                                  >
+                                    {isToggling
+                                      ? "Updating..."
+                                      : isActive
+                                      ? "Deactivate"
+                                      : "Activate"}
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </>
         )}

@@ -24,32 +24,32 @@ Legend:
 ## 1) P0 Hotfix: Products List UX per SSOT (must fix now)
 
 ### 1.1 Zone vs Search priority (SSOT)
-- [ ] When `q` is empty: apply zone filter (`zone` param).
-- [ ] When `q` is non-empty: ignore zone filter entirely; search across ALL active products.
-- [ ] Ensure this is enforced in filtering logic (not just UI).
-- [ ] Keep `zone` in the URL even when `q` is non-empty if desired, but do not apply it.
+- [x] When `q` is empty: apply zone filter (`zone` param).
+- [x] When `q` is non-empty: ignore zone filter entirely; search across ALL active products.
+- [x] Ensure this is enforced in filtering logic (not just UI).
+- [x] Keep `zone` in the URL even when `q` is non-empty if desired, but do not apply it.
 
 ### 1.2 Add "All" chip
-- [ ] Add an "All" chip before the zone chips.
-- [ ] Clicking "All" removes `zone` from the URL (not `zone=all`).
-- [ ] Visual state: "All" can be treated as selected when no `zone` param exists.
+- [x] Add an "All" chip before the zone chips.
+- [x] Clicking "All" removes `zone` from the URL (not `zone=all`).
+- [x] Visual state: "All" can be treated as selected when no `zone` param exists.
 
 ### 1.3 Korean IME stability (required)
-- [ ] Ensure Hangul IME composition does not break in search input.
-- [ ] Do NOT call `router.replace` while composing (`compositionstart` → `compositionend`).
-- [ ] Debounce URL updates for `q` (~300ms) when not composing.
-- [ ] Input should use a local draft state; URL should reflect committed value only.
+- [x] Ensure Hangul IME composition does not break in search input.
+- [x] Do NOT call `router.replace` while composing (`compositionstart` → `compositionend`).
+- [x] Debounce URL updates for `q` (~300ms) when not composing.
+- [x] Input should use a local draft state; URL should reflect committed value only.
 
 ### 1.4 Remove zone keyword override logic (if any exists)
-- [ ] Do not parse zone keywords from `q`.
-- [ ] Search input is for product/manufacturer tokens only.
+- [x] Do not parse zone keywords from `q`.
+- [x] Search input is for product/manufacturer tokens only.
 
 ### 1.5 Acceptance checks (manual)
-- [ ] With zone "Chilled(냉장)" selected, search `돈까스` shows results from any zone.
-- [ ] Clearing `q` immediately returns to zone browsing behavior.
-- [ ] Hangul typing works without inserting spaces between syllables.
-- [ ] Terminal logs do not spam GET on every keystroke (debounced).
-- [ ] `npm run lint` passes.
+- [x] With zone "Chilled(냉장)" selected, search `돈까스` shows results from any zone.
+- [x] Clearing `q` immediately returns to zone browsing behavior.
+- [x] Hangul typing works without inserting spaces between syllables.
+- [x] Terminal logs do not spam GET on every keystroke (debounced).
+- [x] `npm run lint` passes.
 
 ---
 

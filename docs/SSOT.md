@@ -157,3 +157,7 @@
 - `npm run lint` 통과
 - inventory 직접 업데이트 금지
 - localStorage 금지
+
+/settings: Admin-only User Management(목록/활성토글/이름변경)
+
+“DB patches are tracked under db/patches and must be applied in Supabase SQL Editor”

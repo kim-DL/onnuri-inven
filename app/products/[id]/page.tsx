@@ -501,7 +501,7 @@ function normalizeOptional(value: string) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-const EXPIRY_WARNING_DAYS = 100;
+const DEFAULT_EXPIRY_WARNING_DAYS = 100;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function getDaysLeft(dateValue: string) {
@@ -565,6 +565,9 @@ export default function ProductDetailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [expiryWarningDays, setExpiryWarningDays] = useState(
+    DEFAULT_EXPIRY_WARNING_DAYS
+  );
   const [zones, setZones] = useState<Zone[]>([]);
   const [zonesState, setZonesState] = useState<DataState>("idle");
   const [zonesError, setZonesError] = useState<string | null>(null);
@@ -785,6 +788,37 @@ export default function ProductDetailPage() {
 
     let cancelled = false;
 
+    const loadExpiryWarningDays = async () => {
+      const { data, error } = await supabase.rpc("get_expiry_warning_days");
+      if (cancelled) {
+        return;
+      }
+      if (error) {
+        console.error("Failed to fetch expiry warning days", error);
+        setExpiryWarningDays(DEFAULT_EXPIRY_WARNING_DAYS);
+        return;
+      }
+      if (typeof data === "number") {
+        setExpiryWarningDays(data);
+      } else {
+        setExpiryWarningDays(DEFAULT_EXPIRY_WARNING_DAYS);
+      }
+    };
+
+    loadExpiryWarningDays();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authState]);
+
+  useEffect(() => {
+    if (authState !== "authed") {
+      return;
+    }
+
+    let cancelled = false;
+
     const loadData = async () => {
       if (!hasValidId) {
         setErrorMessage("상품 정보를 불러오지 못했어요.");
@@ -918,7 +952,7 @@ export default function ProductDetailPage() {
         badge: { text: "만료", style: badgeExpiredStyle },
       };
     }
-    if (daysLeft <= EXPIRY_WARNING_DAYS) {
+    if (daysLeft <= expiryWarningDays) {
       return {
         label: expiryDate,
         badge: { text: `임박 D-${daysLeft}`, style: badgeWarningStyle },
@@ -1256,6 +1290,8 @@ export default function ProductDetailPage() {
                         </span>
                       </>
                     ) : null}
+                    <span style={factsDotStyle}>·</span>
+                    <span style={labelStyle}>임박 기준 D-{expiryWarningDays}</span>
                   </div>
                 </div>
               </div>

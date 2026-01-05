@@ -35,6 +35,9 @@ type InventoryLog = {
   delta: number;
   before_stock: number;
   after_stock: number;
+  actor_name?: string | null;
+  created_by?: string | null;
+  note?: string | null;
 };
 
 type AdjustMode = "in" | "out";
@@ -477,6 +480,18 @@ function formatTimestamp(raw: string) {
   return date.toLocaleString("ko-KR");
 }
 
+function getActorLabel(log: InventoryLog) {
+  const actorName = log.actor_name?.trim();
+  if (actorName) {
+    return actorName;
+  }
+  const createdBy = log.created_by?.trim();
+  if (createdBy) {
+    return createdBy.slice(0, 8);
+  }
+  return "Unknown";
+}
+
 function getAdjustErrorMessage(error: unknown) {
   const message =
     typeof error === "object" && error && "message" in error
@@ -766,12 +781,10 @@ export default function ProductDetailPage() {
         .select("product_id, stock")
         .eq("product_id", targetId)
         .maybeSingle(),
-      supabase
-        .from("inventory_logs")
-        .select("id, created_at, delta, before_stock, after_stock")
-        .eq("product_id", targetId)
-        .order("created_at", { ascending: false })
-        .limit(20),
+      supabase.rpc("get_inventory_logs_for_product", {
+        p_product_id: targetId,
+        p_limit: 50,
+      }),
     ]);
 
     if (inventoryResult.error || logsResult.error) {
@@ -935,12 +948,10 @@ export default function ProductDetailPage() {
         .eq("product_id", productData.id)
         .maybeSingle();
 
-      const logsPromise = supabase
-        .from("inventory_logs")
-        .select("id, created_at, delta, before_stock, after_stock")
-        .eq("product_id", productData.id)
-        .order("created_at", { ascending: false })
-        .limit(20);
+      const logsPromise = supabase.rpc("get_inventory_logs_for_product", {
+        p_product_id: productData.id,
+        p_limit: 50,
+      });
 
       const zonePromise = productData.zone_id
         ? supabase
@@ -1567,7 +1578,9 @@ export default function ProductDetailPage() {
                 <div style={logListStyle}>
                   {logs.map((log) => (
                     <div key={log.id} style={logRowStyle}>
-                      <p style={logMetaStyle}>{formatTimestamp(log.created_at)}</p>
+                      <p style={logMetaStyle}>
+                        {formatTimestamp(log.created_at)} · {getActorLabel(log)}
+                      </p>
                       <p style={logValueStyle}>
                         {formatDelta(log.delta)} · {log.before_stock} →{" "}
                         {log.after_stock}

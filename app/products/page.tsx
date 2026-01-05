@@ -359,6 +359,17 @@ function getDaysLeft(dateValue: string) {
   const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.floor((targetDate.getTime() - todayLocal.getTime()) / MS_PER_DAY);
 }
+
+function resolvePhotoUrl(photoRef: string) {
+  if (!photoRef) {
+    return "";
+  }
+  if (photoRef.startsWith("http://") || photoRef.startsWith("https://")) {
+    return photoRef;
+  }
+  const { data } = supabase.storage.from("product-photos").getPublicUrl(photoRef);
+  return data.publicUrl ?? "";
+}
 function normalizeZoneParam(zoneParam: string | null): string | null {
   if (!zoneParam) {
     return null;
@@ -811,8 +822,9 @@ export default function ProductsPage() {
                       };
                     }
                   }
-                  const photoUrl = product.photo_url?.trim() ?? "";
-                  const hasPhoto = photoUrl.length > 0;
+                  const photoRef = product.photo_url?.trim() ?? "";
+                  const photoSrc = photoRef ? resolvePhotoUrl(photoRef) : "";
+                  const hasPhoto = photoSrc.length > 0;
                   const detailHref = `/products/${product.id}${detailQuerySuffix}`;
                   return (
                     <Link
@@ -831,7 +843,7 @@ export default function ProductsPage() {
                             {hasPhoto ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
-                                src={photoUrl}
+                                src={photoSrc}
                                 alt={`${product.name} 사진`}
                                 style={thumbnailImageStyle}
                                 loading="lazy"

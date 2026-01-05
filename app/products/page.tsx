@@ -23,6 +23,7 @@ type Product = {
   zone_id: string | null;
   expiry_date: string | null;
   photo_url: string | null;
+  unit: string | null;
 };
 
 type InventoryRow = {
@@ -542,7 +543,7 @@ export default function ProductsPage() {
           supabase.from("zones").select("id, name").order("sort_order"),
           supabase
             .from("products")
-            .select("id, name, manufacturer, zone_id, expiry_date, photo_url")
+            .select("id, name, manufacturer, zone_id, expiry_date, photo_url, unit")
             .eq("active", true)
             .order("name"),
           supabase.from("inventory").select("product_id, stock"),
@@ -938,8 +939,9 @@ export default function ProductsPage() {
                   const stock = stockByProductId.get(product.id) ?? 0;
                   const expiryDate = product.expiry_date?.trim() ?? "";
                   const metaParts = [manufacturer, zoneName ?? "구역 미지정"];
-                  if (expiryDate) {
-                    metaParts.push(expiryDate);
+                  const unit = product.unit?.trim() ?? "";
+                  if (unit) {
+                    metaParts.push(unit);
                   }
                   const metaLeft = metaParts.join(" · ");
                   const daysLeft = expiryDate ? getDaysLeft(expiryDate) : null;

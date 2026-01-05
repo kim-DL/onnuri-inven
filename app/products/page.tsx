@@ -116,15 +116,9 @@ const cardStyle: CSSProperties = {
 
 const cardContentStyle: CSSProperties = {
   display: "grid",
-<<<<<<< HEAD
-  gridTemplateColumns: "64px minmax(0, 1fr) auto",
-  gap: "12px",
-  alignItems: "center",
-=======
   gridTemplateColumns: "64px minmax(0, 1fr)",
   gap: "12px",
   alignItems: "flex-start",
->>>>>>> 7e51532 (refactor(ui): improve list card name/stock readability)
 };
 
 const thumbnailStyle: CSSProperties = {
@@ -159,15 +153,6 @@ const thumbnailImageStyle: CSSProperties = {
   display: "block",
 };
 
-<<<<<<< HEAD
-const cardTextStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "4px",
-  minWidth: 0,
-};
-
-=======
 const cardBodyStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -189,19 +174,10 @@ const cardRowSecondaryStyle: CSSProperties = {
   gap: "8px",
 };
 
->>>>>>> 7e51532 (refactor(ui): improve list card name/stock readability)
 const cardTitleStyle: CSSProperties = {
   fontSize: "16px",
   fontWeight: 700,
   margin: 0,
-<<<<<<< HEAD
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-};
-
-const cardRowLeftStyle: CSSProperties = {
-=======
   lineHeight: 1.3,
   display: "-webkit-box",
   WebkitLineClamp: 2,
@@ -210,7 +186,6 @@ const cardRowLeftStyle: CSSProperties = {
 };
 
 const cardMetaStyle: CSSProperties = {
->>>>>>> 7e51532 (refactor(ui): improve list card name/stock readability)
   fontSize: "13px",
   color: "#5A514B",
   margin: 0,
@@ -219,19 +194,6 @@ const cardMetaStyle: CSSProperties = {
   textOverflow: "ellipsis",
 };
 
-<<<<<<< HEAD
-const cardRightStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "flex-end",
-  gap: "4px",
-  flexShrink: 0,
-};
-
-const cardRowRightStyle: CSSProperties = {
-  fontSize: "13px",
-  color: "#5A514B",
-=======
 const stockBlockStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -244,7 +206,6 @@ const stockBlockStyle: CSSProperties = {
 const stockLabelStyle: CSSProperties = {
   fontSize: "11px",
   color: "#7B736C",
->>>>>>> 7e51532 (refactor(ui): improve list card name/stock readability)
   margin: 0,
   whiteSpace: "nowrap",
 };
@@ -256,29 +217,6 @@ const stockValueStyle: CSSProperties = {
   margin: 0,
   whiteSpace: "nowrap",
   lineHeight: 1.1,
-};
-
-const badgeBaseStyle: CSSProperties = {
-  fontSize: "11px",
-  fontWeight: 600,
-  padding: "2px 8px",
-  borderRadius: "999px",
-  border: "1px solid transparent",
-  whiteSpace: "nowrap",
-};
-
-const badgeExpiredStyle: CSSProperties = {
-  ...badgeBaseStyle,
-  color: "#B42318",
-  background: "#FEE4E2",
-  borderColor: "#FECDCA",
-};
-
-const badgeWarningStyle: CSSProperties = {
-  ...badgeBaseStyle,
-  color: "#B54708",
-  background: "#FEF0C7",
-  borderColor: "#FEDF89",
 };
 
 const badgeBaseStyle: CSSProperties = {
@@ -876,19 +814,6 @@ export default function ProductsPage() {
                               />
                             ) : null}
                           </div>
-<<<<<<< HEAD
-                          <div style={cardTextStyle}>
-                            <p style={cardTitleStyle}>{product.name}</p>
-                            <p style={cardRowLeftStyle}>{metaLeft}</p>
-                          </div>
-                          <div style={cardRightStyle}>
-                            <p style={cardRowRightStyle}>재고 {stock}</p>
-                            {expiryBadge ? (
-                              <span style={expiryBadge.style}>
-                                {expiryBadge.text}
-                              </span>
-                            ) : null}
-=======
                           <div style={cardBodyStyle}>
                             <div style={cardRowPrimaryStyle}>
                               <p style={cardTitleStyle}>{product.name}</p>
@@ -905,7 +830,6 @@ export default function ProductsPage() {
                                 </span>
                               ) : null}
                             </div>
->>>>>>> 7e51532 (refactor(ui): improve list card name/stock readability)
                           </div>
                         </div>
                       </div>

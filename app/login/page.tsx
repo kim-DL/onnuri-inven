@@ -166,7 +166,7 @@ export default function LoginPage() {
   if (isBlocked) {
     return (
       <div className="min-h-screen bg-[#F9F8F6] px-4 py-10">
-        <div className="mx-auto w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6">
+        <div className="mx-auto w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 text-center">
           <h1 className="text-lg font-semibold text-slate-900">접근 안내</h1>
           <p className="mt-2 text-sm text-slate-600">
             {effectiveAccessMessage}
@@ -186,7 +186,10 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#F9F8F6] px-4 py-10">
-      <div className="mx-auto w-full max-w-sm">
+      <div className="mx-auto w-full max-w-sm text-center">
+        <p className="mb-4 text-base font-semibold text-slate-800">
+          온누리종합식품 재고조사 시스템
+        </p>
         <div className="rounded-lg border border-slate-200 bg-white p-6">
           <h1 className="text-2xl font-semibold text-slate-900">로그인</h1>
           <p className="mt-2 text-sm text-slate-600">
@@ -209,7 +212,7 @@ export default function LoginPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="mt-2 h-12 w-full rounded-md border border-slate-300 bg-white px-3 text-base text-slate-900 focus:border-slate-500 focus:outline-none"
+                className="mt-2 h-12 w-full rounded-md border border-slate-300 bg-white px-3 text-base text-slate-900 focus:border-slate-500 focus:outline-none text-center"
                 required
               />
             </div>
@@ -223,7 +226,7 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="mt-2 h-12 w-full rounded-md border border-slate-300 bg-white px-3 text-base text-slate-900 focus:border-slate-500 focus:outline-none"
+                className="mt-2 h-12 w-full rounded-md border border-slate-300 bg-white px-3 text-base text-slate-900 focus:border-slate-500 focus:outline-none text-center"
                 required
               />
             </div>

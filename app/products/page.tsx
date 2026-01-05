@@ -71,6 +71,69 @@ const headerActionRowStyle: CSSProperties = {
   gap: "8px",
 };
 
+const menuWrapperStyle: CSSProperties = {
+  position: "relative",
+};
+
+const menuButtonStyle: CSSProperties = {
+  minHeight: "44px",
+  width: "44px",
+  borderRadius: "10px",
+  border: "1px solid #D6D2CC",
+  background: "#FFFFFF",
+  color: "#2E2A27",
+  fontSize: "20px",
+  fontWeight: 700,
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const menuOverlayStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "transparent",
+  zIndex: 8,
+};
+
+const menuPanelStyle: CSSProperties = {
+  position: "absolute",
+  top: "52px",
+  right: 0,
+  minWidth: "180px",
+  borderRadius: "12px",
+  border: "1px solid #E3DED8",
+  background: "#FFFFFF",
+  boxShadow: "0 8px 20px rgba(46, 42, 39, 0.15)",
+  display: "flex",
+  flexDirection: "column",
+  padding: "6px",
+  zIndex: 9,
+};
+
+const menuItemStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 12px",
+  borderRadius: "10px",
+  border: "none",
+  background: "transparent",
+  color: "#2E2A27",
+  fontSize: "14px",
+  fontWeight: 600,
+  cursor: "pointer",
+  textDecoration: "none",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-start",
+};
+
+const menuDividerStyle: CSSProperties = {
+  height: "1px",
+  background: "#E8E2DB",
+  margin: "4px 6px",
+};
+
 const chipRowStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
@@ -271,34 +334,6 @@ const buttonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
-const logoutButtonStyle: CSSProperties = {
-  minHeight: "44px",
-  padding: "0 12px",
-  borderRadius: "999px",
-  border: "1px solid #D6D2CC",
-  background: "#FFFFFF",
-  color: "#2E2A27",
-  fontSize: "13px",
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const archivedLinkStyle: CSSProperties = {
-  minHeight: "44px",
-  padding: "0 12px",
-  borderRadius: "999px",
-  border: "1px solid #D6D2CC",
-  background: "#FFFFFF",
-  color: "#2E2A27",
-  fontSize: "13px",
-  fontWeight: 600,
-  cursor: "pointer",
-  textDecoration: "none",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
 const floatingAddButtonStyle: CSSProperties = {
   position: "fixed",
   right: "16px",
@@ -411,6 +446,7 @@ export default function ProductsPage() {
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [draftQuery, setDraftQuery] = useState(query);
   const [isComposing, setIsComposing] = useState(false);
   const isComposingRef = useRef(false);
@@ -702,6 +738,59 @@ export default function ProductsPage() {
     router.replace("/login");
   };
 
+  const escapeCsvValue = (value: string) => {
+    if (/[",\n]/.test(value)) {
+      return `"${value.replace(/"/g, "\"\"")}"`;
+    }
+    return value;
+  };
+
+  const buildCsvFileName = () => {
+    const now = new Date();
+    const pad = (value: number) => String(value).padStart(2, "0");
+    const year = now.getFullYear();
+    const month = pad(now.getMonth() + 1);
+    const day = pad(now.getDate());
+    const hour = pad(now.getHours());
+    const minute = pad(now.getMinutes());
+    return `onnuri-products-${year}${month}${day}-${hour}${minute}.csv`;
+  };
+
+  const handleExportCsv = () => {
+    const headers = ["product_name", "zone", "manufacturer", "stock", "expiry_date"];
+    const rows = filteredProducts.map((product) => {
+      const zoneName = product.zone_id
+        ? zoneNameById.get(product.zone_id)
+        : null;
+      const manufacturer = product.manufacturer?.trim() || "제조사 미입력";
+      const zoneLabel = zoneName ?? "구역 미지정";
+      const stock = stockByProductId.get(product.id) ?? 0;
+      const expiryDate = product.expiry_date?.trim() ?? "";
+      return [
+        product.name,
+        zoneLabel,
+        manufacturer,
+        String(stock),
+        expiryDate,
+      ].map(escapeCsvValue);
+    });
+
+    const csvBody = [headers.join(","), ...rows.map((row) => row.join(","))].join(
+      "\n"
+    );
+    const csvWithBom = `\uFEFF${csvBody}`;
+    const blob = new Blob([csvWithBom], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = buildCsvFileName();
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setIsMenuOpen(false);
+  };
+
   return (
     <div style={pageStyle}>
       <div style={containerStyle}>
@@ -709,15 +798,59 @@ export default function ProductsPage() {
           <h1 style={titleStyle}>상품 목록</h1>
           {authState !== "blocked" ? (
             <div style={headerActionRowStyle}>
-              <Link href={settingsHref} style={archivedLinkStyle}>
-                설정
-              </Link>
-              <Link href={archivedHref} style={archivedLinkStyle}>
-                비활성화 목록
-              </Link>
-              <button type="button" style={logoutButtonStyle} onClick={handleLogout}>
-                로그아웃
-              </button>
+              <div style={menuWrapperStyle}>
+                <button
+                  type="button"
+                  style={menuButtonStyle}
+                  aria-label="메뉴 열기"
+                  onClick={() => setIsMenuOpen((prev) => !prev)}
+                >
+                  ☰
+                </button>
+                {isMenuOpen ? (
+                  <>
+                    <div
+                      style={menuOverlayStyle}
+                      onClick={() => setIsMenuOpen(false)}
+                      aria-hidden="true"
+                    />
+                    <div style={menuPanelStyle}>
+                      <Link
+                        href={settingsHref}
+                        style={menuItemStyle}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        설정
+                      </Link>
+                      <Link
+                        href={archivedHref}
+                        style={menuItemStyle}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        비활성화 목록
+                      </Link>
+                      <div style={menuDividerStyle} />
+                      <button
+                        type="button"
+                        style={menuItemStyle}
+                        onClick={handleExportCsv}
+                      >
+                        CSV 내보내기
+                      </button>
+                      <button
+                        type="button"
+                        style={menuItemStyle}
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          void handleLogout();
+                        }}
+                      >
+                        로그아웃
+                      </button>
+                    </div>
+                  </>
+                ) : null}
+              </div>
             </div>
           ) : null}
         </header>

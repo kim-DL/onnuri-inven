@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ChangeEvent, CSSProperties } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
@@ -548,6 +548,65 @@ function formatOptionalLabel(value: string | null | undefined) {
   return trimmed ? trimmed : "미입력";
 }
 
+function resolvePhotoUrl(photoRef: string) {
+  if (!photoRef) {
+    return "";
+  }
+  if (photoRef.startsWith("http://") || photoRef.startsWith("https://")) {
+    return photoRef;
+  }
+  const { data } = supabase.storage.from("product-photos").getPublicUrl(photoRef);
+  return data.publicUrl ?? "";
+}
+
+function isStoragePhotoRef(photoRef: string) {
+  if (!photoRef) {
+    return false;
+  }
+  return !photoRef.startsWith("http://") && !photoRef.startsWith("https://");
+}
+
+function getPhotoExtension(file: File) {
+  const type = file.type.toLowerCase();
+  if (type === "image/jpeg" || type === "image/jpg") {
+    return "jpg";
+  }
+  if (type === "image/png") {
+    return "png";
+  }
+  if (type === "image/webp") {
+    return "webp";
+  }
+  if (type === "image/heic") {
+    return "heic";
+  }
+  if (type === "image/heif") {
+    return "heif";
+  }
+  const match = file.name.toLowerCase().match(/\.([a-z0-9]+)$/);
+  return match?.[1] ?? "jpg";
+}
+
+function buildPhotoPath(productId: string, file: File) {
+  const extension = getPhotoExtension(file);
+  const fileId = crypto.randomUUID();
+  return `products/${productId}/${fileId}.${extension}`;
+}
+
+function getPhotoErrorMessage(
+  error: { message?: string; code?: string } | null | undefined,
+  fallback: string
+) {
+  const message = error?.message?.toLowerCase() ?? "";
+  if (message.includes("not authenticated") || message.includes("jwt")) {
+    return "세션이 만료되었어요. 다시 로그인해 주세요.";
+  }
+  if (message.includes("inactive user") || error?.code === "42501") {
+    return "권한이 없어요.";
+  }
+  return fallback;
+}
+
 export default function ProductDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -584,6 +643,11 @@ export default function ProductDetailPage() {
   const [editErrors, setEditErrors] = useState<EditFormErrors>({});
   const [editError, setEditError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPhotoUpdating, setIsPhotoUpdating] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoSuccess, setPhotoSuccess] = useState<string | null>(null);
+  const [photoErrorSrc, setPhotoErrorSrc] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
   const [adjustMode, setAdjustMode] = useState<AdjustMode | null>(null);
   const [adjustQty, setAdjustQty] = useState("");
   const [adjustError, setAdjustError] = useState<string | null>(null);
@@ -648,6 +712,8 @@ export default function ProductDetailPage() {
     });
     setEditErrors({});
     setEditError(null);
+    setPhotoError(null);
+    setPhotoSuccess(null);
 
     if (zonesState !== "ready" && zonesState !== "loading") {
       void loadZones();
@@ -673,12 +739,14 @@ export default function ProductDetailPage() {
   };
 
   const closeEditModal = () => {
-    if (isSaving) {
+    if (isSaving || isPhotoUpdating) {
       return;
     }
     setIsEditOpen(false);
     setEditErrors({});
     setEditError(null);
+    setPhotoError(null);
+    setPhotoSuccess(null);
   };
 
   const closeArchiveModal = () => {
@@ -961,8 +1029,9 @@ export default function ProductDetailPage() {
 
     return { label: expiryDate, badge: null };
   })();
-  const photoUrl = product?.photo_url?.trim() ?? "";
-  const hasPhoto = photoUrl.length > 0;
+  const photoRef = product?.photo_url?.trim() ?? "";
+  const photoSrc = photoRef ? resolvePhotoUrl(photoRef) : "";
+  const hasPhoto = photoSrc.length > 0 && photoErrorSrc !== photoSrc;
   const isZonesLoading = zonesState === "loading";
   const zoneOptions = useMemo(
     () =>
@@ -979,6 +1048,153 @@ export default function ProductDetailPage() {
     if (editErrors[field]) {
       setEditErrors((prev) => ({ ...prev, [field]: undefined }));
     }
+  };
+
+  const handlePhotoSelect = () => {
+    if (isPhotoUpdating) {
+      return;
+    }
+    setPhotoError(null);
+    setPhotoSuccess(null);
+    photoInputRef.current?.click();
+  };
+
+  const handlePhotoFileChange = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) {
+      return;
+    }
+    if (!hasValidId || !productId) {
+      setPhotoError("사진 변경에 실패했어요.");
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("이미지 파일만 업로드할 수 있어요.");
+      return;
+    }
+
+    setPhotoError(null);
+    setPhotoSuccess(null);
+    setIsPhotoUpdating(true);
+
+    const previousPhotoRef = product?.photo_url?.trim() ?? "";
+    const nextPath = buildPhotoPath(productId, file);
+
+    const { error: uploadError } = await supabase.storage
+      .from("product-photos")
+      .upload(nextPath, file, { upsert: false });
+
+    if (uploadError) {
+      console.error("Failed to upload photo", {
+        message: uploadError?.message,
+        details: uploadError?.details,
+        hint: uploadError?.hint,
+        code: uploadError?.code,
+      });
+      setPhotoError(getPhotoErrorMessage(uploadError, "사진 업로드에 실패했어요."));
+      setIsPhotoUpdating(false);
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from("products")
+      .update({ photo_url: nextPath })
+      .eq("id", productId);
+
+    if (updateError) {
+      console.error("Failed to update product photo", {
+        message: updateError?.message,
+        details: updateError?.details,
+        hint: updateError?.hint,
+        code: updateError?.code,
+      });
+      setPhotoError(getPhotoErrorMessage(updateError, "사진 변경에 실패했어요."));
+      const { error: cleanupError } = await supabase.storage
+        .from("product-photos")
+        .remove([nextPath]);
+      if (cleanupError) {
+        console.error("Failed to clean up photo upload", {
+          message: cleanupError?.message,
+          details: cleanupError?.details,
+          hint: cleanupError?.hint,
+          code: cleanupError?.code,
+        });
+      }
+      setIsPhotoUpdating(false);
+      return;
+    }
+
+    setProduct((prev) => (prev ? { ...prev, photo_url: nextPath } : prev));
+    setPhotoSuccess("사진을 변경했어요.");
+    setIsPhotoUpdating(false);
+
+    if (isStoragePhotoRef(previousPhotoRef)) {
+      const { error: removeError } = await supabase.storage
+        .from("product-photos")
+        .remove([previousPhotoRef]);
+      if (removeError) {
+        console.error("Failed to remove old photo", {
+          message: removeError?.message,
+          details: removeError?.details,
+          hint: removeError?.hint,
+          code: removeError?.code,
+        });
+      }
+    }
+  };
+
+  const handlePhotoDelete = async () => {
+    if (!hasValidId || !productId) {
+      setPhotoError("사진 삭제에 실패했어요.");
+      return;
+    }
+
+    const currentPhotoRef = product?.photo_url?.trim() ?? "";
+    if (!currentPhotoRef) {
+      return;
+    }
+
+    setPhotoError(null);
+    setPhotoSuccess(null);
+    setIsPhotoUpdating(true);
+
+    if (isStoragePhotoRef(currentPhotoRef)) {
+      const { error: removeError } = await supabase.storage
+        .from("product-photos")
+        .remove([currentPhotoRef]);
+      if (removeError) {
+        console.error("Failed to remove photo", {
+          message: removeError?.message,
+          details: removeError?.details,
+          hint: removeError?.hint,
+          code: removeError?.code,
+        });
+      }
+    }
+
+    const { error: updateError } = await supabase
+      .from("products")
+      .update({ photo_url: null })
+      .eq("id", productId);
+
+    if (updateError) {
+      console.error("Failed to clear product photo", {
+        message: updateError?.message,
+        details: updateError?.details,
+        hint: updateError?.hint,
+        code: updateError?.code,
+      });
+      setPhotoError(getPhotoErrorMessage(updateError, "사진 삭제에 실패했어요."));
+      setIsPhotoUpdating(false);
+      return;
+    }
+
+    setProduct((prev) => (prev ? { ...prev, photo_url: null } : prev));
+    setPhotoSuccess("사진을 삭제했어요.");
+    setIsPhotoUpdating(false);
   };
 
   const handleEditConfirm = async () => {
@@ -1231,10 +1447,11 @@ export default function ProductDetailPage() {
                   {hasPhoto ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={photoUrl}
+                      src={photoSrc}
                       alt={`${product.name} 사진`}
                       style={photoImageStyle}
                       loading="lazy"
+                      onError={() => setPhotoErrorSrc(photoSrc)}
                     />
                   ) : (
                     <span style={photoPlaceholderStyle}>사진</span>
@@ -1424,6 +1641,39 @@ export default function ProductDetailPage() {
               <h2 id="edit-title" style={modalTitleStyle}>
                 상품 수정
               </h2>
+              <div style={modalFieldStyle}>
+                <span style={labelStyle}>사진</span>
+                <div style={modalButtonRowStyle}>
+                  <button
+                    type="button"
+                    style={modalCancelStyle}
+                    onClick={handlePhotoSelect}
+                    disabled={isPhotoUpdating}
+                  >
+                    {isPhotoUpdating ? "처리 중..." : "사진 변경"}
+                  </button>
+                  <button
+                    type="button"
+                    style={modalDangerStyle}
+                    onClick={handlePhotoDelete}
+                    disabled={isPhotoUpdating || !photoRef}
+                  >
+                    {isPhotoUpdating ? "처리 중..." : "사진 삭제"}
+                  </button>
+                </div>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handlePhotoFileChange}
+                  style={{ display: "none" }}
+                />
+                {photoError ? <p style={helperTextStyle}>{photoError}</p> : null}
+                {photoSuccess ? (
+                  <p style={helperTextStyle}>{photoSuccess}</p>
+                ) : null}
+              </div>
               <div style={modalFieldStyle}>
                 <label htmlFor="edit-name" style={labelStyle}>
                   제품명

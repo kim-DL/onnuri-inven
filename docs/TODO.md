@@ -16,8 +16,8 @@ Legend:
 - [x] Root gating (`/`) redirects based on session/profile.
 - [x] Products list page (`/products`) implemented (read-only) with zone chips and search (URL persistence).
 - [x] Product detail page (`/products/[id]`) implemented (read-only) with back-to-list query preservation.
-- [ ] Products list IME stability + zone/search priority needs correction per SSOT.
-- [ ] "All" zone chip must exist and clear `zone` param.
+- [x] Products list IME stability + zone/search priority needs correction per SSOT.
+- [x] "All" zone chip must exist and clear `zone` param.
 
 ---
 

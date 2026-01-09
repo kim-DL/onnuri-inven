@@ -192,26 +192,6 @@ const factsCellDividerStyle: CSSProperties = {
   marginRight: "12px",
 };
 
-const factsFullRowStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "4px",
-  minWidth: 0,
-};
-
-const factsInlineStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-  flexWrap: "wrap",
-};
-
-const factsDotStyle: CSSProperties = {
-  fontSize: "14px",
-  color: "#9C938B",
-  fontWeight: 600,
-};
-
 const labelStyle: CSSProperties = {
   fontSize: "12px",
   color: "#7B736C",
@@ -219,7 +199,7 @@ const labelStyle: CSSProperties = {
 };
 
 const valueStyle: CSSProperties = {
-  fontSize: "15px",
+  fontSize: "17px",
   color: "#2E2A27",
   margin: 0,
   fontWeight: 600,
@@ -1494,24 +1474,14 @@ export default function ProductDetailPage() {
                     <p style={valueStyle}>{specLabel}</p>
                   </div>
                 </div>
-                <div style={{ ...factsFullRowStyle, ...factsRowDividerStyle }}>
-                  <p style={labelStyle}>원산지</p>
-                  <p style={valueStyle}>{originLabel}</p>
-                </div>
-                <div style={{ ...factsFullRowStyle, ...factsRowDividerStyle }}>
-                  <p style={labelStyle}>유통기한</p>
-                  <div style={factsInlineStyle}>
+                <div style={{ ...factsRowStyle, ...factsRowDividerStyle }}>
+                  <div style={factsCellDividerStyle}>
+                    <p style={labelStyle}>원산지</p>
+                    <p style={valueStyle}>{originLabel}</p>
+                  </div>
+                  <div style={factsCellStyle}>
+                    <p style={labelStyle}>유통기한</p>
                     <p style={valueStyle}>{expiryInfo.label}</p>
-                    {expiryInfo.badge ? (
-                      <>
-                        <span style={factsDotStyle}>·</span>
-                        <span style={expiryInfo.badge.style}>
-                          {expiryInfo.badge.text}
-                        </span>
-                      </>
-                    ) : null}
-                    <span style={factsDotStyle}>·</span>
-                    <span style={labelStyle}>임박 기준 D-{expiryWarningDays}</span>
                   </div>
                 </div>
               </div>

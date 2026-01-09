@@ -43,6 +43,7 @@ const pageStyle: CSSProperties = {
   minHeight: "100vh",
   background: "#F9F8F6",
   padding: "16px",
+  paddingBottom: "96px",
 };
 
 const containerStyle: CSSProperties = {
@@ -50,7 +51,7 @@ const containerStyle: CSSProperties = {
   margin: "0 auto",
   display: "flex",
   flexDirection: "column",
-  gap: "16px",
+  gap: "12px",
 };
 
 const titleStyle: CSSProperties = {
@@ -63,7 +64,7 @@ const headerBarStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: "12px",
+  gap: "8px",
 };
 
 const headerActionRowStyle: CSSProperties = {
@@ -138,25 +139,26 @@ const menuDividerStyle: CSSProperties = {
 const chipRowStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
+  justifyContent: "center",
   gap: "8px",
 };
 
 const chipBaseStyle: CSSProperties = {
   minHeight: "44px",
-  padding: "0 14px",
-  borderRadius: "999px",
+  padding: "0 12px",
+  borderRadius: "12px",
   border: "1px solid #D6D2CC",
-  background: "#FFFFFF",
-  color: "#2E2A27",
+  background: "transparent",
+  color: "#6B625B",
   fontSize: "14px",
   fontWeight: 600,
   cursor: "pointer",
 };
 
 const chipActiveStyle: CSSProperties = {
-  background: "#2E2A27",
-  color: "#FFFFFF",
-  border: "1px solid #2E2A27",
+  background: "rgba(30, 42, 68, 0.08)",
+  color: "#1E2A44",
+  border: "1px solid #D6D2CC",
 };
 
 const inputStyle: CSSProperties = {
@@ -320,12 +322,6 @@ const helperTextStyle: CSSProperties = {
   margin: 0,
 };
 
-const subtleTextStyle: CSSProperties = {
-  fontSize: "12px",
-  color: "#7B736C",
-  margin: 0,
-};
-
 const skeletonBlockStyle: CSSProperties = {
   background: "#E7E3DD",
   borderRadius: "10px",
@@ -347,18 +343,19 @@ const floatingAddButtonStyle: CSSProperties = {
   position: "fixed",
   right: "16px",
   bottom: "16px",
-  width: "56px",
-  height: "56px",
-  borderRadius: "50%",
-  background: "#2E2A27",
-  color: "#FFFFFF",
-  fontSize: "28px",
+  width: "48px",
+  height: "48px",
+  borderRadius: "12px",
+  background: "transparent",
+  color: "#1E2A44",
+  border: "1px solid #1E2A44",
+  fontSize: "26px",
   fontWeight: 700,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   textDecoration: "none",
-  boxShadow: "0 6px 16px rgba(46, 42, 39, 0.25)",
+  boxShadow: "0 2px 10px rgba(30, 42, 68, 0.12)",
   zIndex: 10,
 };
 
@@ -866,10 +863,6 @@ export default function ProductsPage() {
         {authState !== "blocked" && signOutError ? (
           <p style={helperTextStyle}>{signOutError}</p>
         ) : null}
-        {authState !== "blocked" ? (
-          <p style={subtleTextStyle}>임박 기준: D-{expiryWarningDays}</p>
-        ) : null}
-
         {authState === "blocked" ? (
           <div style={{ ...cardStyle, gap: "12px" }}>
             <p style={helperTextStyle}>
@@ -893,7 +886,7 @@ export default function ProductsPage() {
                 }}
                 onClick={() => updateSearchParams({ zone: null })}
               >
-                All
+                전체
               </button>
               {ZONE_KEYWORDS.map((zone) => {
                 const isActive = selectedZone === zone;

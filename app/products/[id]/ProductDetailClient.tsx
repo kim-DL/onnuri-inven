@@ -5,6 +5,7 @@ import type { ChangeEvent, CSSProperties } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
+import { resizeImageForUpload } from "@/lib/resizeImageForUpload";
 import { supabase } from "@/lib/supabaseClient";
 
 type Product = {
@@ -1072,11 +1073,12 @@ export default function ProductDetailPage() {
     setIsPhotoUpdating(true);
 
     const previousPhotoRef = product?.photo_url?.trim() ?? "";
-    const nextPath = buildPhotoPath(productId, file);
+    const uploadFile = await resizeImageForUpload(file);
+    const nextPath = buildPhotoPath(productId, uploadFile);
 
     const { error: uploadError } = await supabase.storage
       .from("product-photos")
-      .upload(nextPath, file, { upsert: false });
+      .upload(nextPath, uploadFile, { upsert: false });
 
     if (uploadError) {
       console.error("Failed to upload photo", {

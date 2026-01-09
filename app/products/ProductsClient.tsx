@@ -169,7 +169,7 @@ const inputStyle: CSSProperties = {
 };
 
 const cardStyle: CSSProperties = {
-  padding: "14px",
+  padding: "8px",
   borderRadius: "12px",
   border: "1px solid #E3DED8",
   background: "#FFFFFF",
@@ -181,7 +181,7 @@ const cardStyle: CSSProperties = {
 const cardContentStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "64px minmax(0, 1fr)",
-  gap: "12px",
+  gap: "6px",
   alignItems: "flex-start",
 };
 
@@ -220,7 +220,7 @@ const thumbnailImageStyle: CSSProperties = {
 const cardBodyStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "6px",
+  gap: "4px",
   minWidth: 0,
 };
 
@@ -228,7 +228,7 @@ const cardRowPrimaryStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "minmax(0, 1fr) auto",
   alignItems: "start",
-  gap: "8px",
+  gap: "6px",
 };
 
 const cardRowSecondaryStyle: CSSProperties = {
@@ -239,10 +239,10 @@ const cardRowSecondaryStyle: CSSProperties = {
 };
 
 const cardTitleStyle: CSSProperties = {
-  fontSize: "16px",
+  fontSize: "17px",
   fontWeight: 700,
   margin: 0,
-  lineHeight: 1.3,
+  lineHeight: 1.2,
   display: "-webkit-box",
   WebkitLineClamp: 2,
   WebkitBoxOrient: "vertical",
@@ -250,9 +250,10 @@ const cardTitleStyle: CSSProperties = {
 };
 
 const cardMetaStyle: CSSProperties = {
-  fontSize: "13px",
+  fontSize: "14px",
   color: "#5A514B",
   margin: 0,
+  lineHeight: 1.25,
   whiteSpace: "nowrap",
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -261,10 +262,17 @@ const cardMetaStyle: CSSProperties = {
 const stockBlockStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  alignItems: "flex-end",
+  alignItems: "center",
   gap: "2px",
-  minWidth: "64px",
+  minWidth: "56px",
   textAlign: "right",
+};
+
+const rightColumnStyle: CSSProperties = {
+  minWidth: "56px",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
 };
 
 const stockLabelStyle: CSSProperties = {
@@ -275,7 +283,7 @@ const stockLabelStyle: CSSProperties = {
 };
 
 const stockValueStyle: CSSProperties = {
-  fontSize: "20px",
+  fontSize: "22px",
   fontWeight: 700,
   color: "#2E2A27",
   margin: 0,
@@ -416,7 +424,7 @@ function normalizeZoneParam(zoneParam: string | null): string | null {
 
 function SkeletonList() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
       {[0, 1, 2].map((item) => (
         <div key={item} style={{ ...cardStyle, border: "none" }}>
           <div style={{ ...skeletonBlockStyle, height: "18px", width: "60%" }} />
@@ -929,7 +937,7 @@ export default function ProductsPage() {
                 <p style={helperTextStyle}>조건에 맞는 상품이 없어요.</p>
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                 {filteredProducts.map((product) => {
                   const zoneName = product.zone_id
                     ? zoneNameById.get(product.zone_id)
@@ -938,7 +946,7 @@ export default function ProductsPage() {
                     product.manufacturer?.trim() || "제조사 미입력";
                   const stock = stockByProductId.get(product.id) ?? 0;
                   const expiryDate = product.expiry_date?.trim() ?? "";
-                  const metaParts = [manufacturer, zoneName ?? "구역 미지정"];
+                  const metaParts = [zoneName ?? "구역 미지정", manufacturer];
                   const unit = product.unit?.trim() ?? "";
                   if (unit) {
                     metaParts.push(unit);
@@ -991,18 +999,22 @@ export default function ProductsPage() {
                           <div style={cardBodyStyle}>
                             <div style={cardRowPrimaryStyle}>
                               <p style={cardTitleStyle}>{product.name}</p>
+                            <div style={rightColumnStyle}>
                               <div style={stockBlockStyle}>
                                 <p style={stockLabelStyle}>재고</p>
                                 <p style={stockValueStyle}>{stock}</p>
                               </div>
                             </div>
+                            </div>
                             <div style={cardRowSecondaryStyle}>
                               <p style={cardMetaStyle}>{metaLeft}</p>
-                              {expiryBadge ? (
-                                <span style={expiryBadge.style}>
-                                  {expiryBadge.text}
-                                </span>
-                              ) : null}
+                              <div style={rightColumnStyle}>
+                                {expiryBadge ? (
+                                  <span style={expiryBadge.style}>
+                                    {expiryBadge.text}
+                                  </span>
+                                ) : null}
+                              </div>
                             </div>
                           </div>
                         </div>

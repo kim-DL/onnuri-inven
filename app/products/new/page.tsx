@@ -80,7 +80,7 @@ const photoSlotStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   cursor: "pointer",
-  alignSelf: "flex-start",
+  alignSelf: "center",
 };
 
 const photoPlaceholderStyle: CSSProperties = {
@@ -99,6 +99,7 @@ const photoImageStyle: CSSProperties = {
 
 const photoActionRowStyle: CSSProperties = {
   display: "flex",
+  justifyContent: "center",
   gap: "8px",
   flexWrap: "wrap",
 };

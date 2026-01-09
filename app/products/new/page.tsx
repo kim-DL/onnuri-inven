@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, CSSProperties, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
+import { resizeImageForUpload } from "@/lib/resizeImageForUpload";
 import { supabase } from "@/lib/supabaseClient";
 
 type Zone = {
@@ -525,10 +526,11 @@ export default function NewProductPage() {
     }
 
     if (photoFile) {
-      const photoPath = buildPhotoPath(productData.id, photoFile);
+      const uploadFile = await resizeImageForUpload(photoFile);
+      const photoPath = buildPhotoPath(productData.id, uploadFile);
       const { error: uploadError } = await supabase.storage
         .from("product-photos")
-        .upload(photoPath, photoFile, { upsert: false });
+        .upload(photoPath, uploadFile, { upsert: false });
 
       if (uploadError) {
         console.error("Failed to upload product photo", {

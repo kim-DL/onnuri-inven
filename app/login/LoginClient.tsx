@@ -5,6 +5,18 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
 
+const pageClassName =
+  "relative isolate min-h-[100svh] overflow-hidden bg-[#F9F8F6] px-4 pb-10 pt-8 sm:pt-12 before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(80%_60%_at_50%_0%,rgba(255,255,255,0.7)_0%,rgba(249,248,246,0)_70%),radial-gradient(140%_140%_at_50%_50%,rgba(15,23,42,0)_60%,rgba(15,23,42,0.06)_100%)] before:content-[''] after:pointer-events-none after:absolute after:inset-0 after:opacity-[0.35] after:[background-image:radial-gradient(rgba(15,23,42,0.08)_1px,transparent_1px)] after:[background-size:3px_3px] after:content-['']";
+const containerClassName =
+  "relative z-10 mx-auto flex w-full max-w-[420px] flex-col items-center gap-6";
+const cardClassName =
+  "w-full rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_18px_40px_rgba(15,23,42,0.08)] sm:p-7";
+const labelClassName = "text-xs font-semibold tracking-[0.12em] text-slate-500";
+const inputClassName =
+  "mt-2 h-12 w-full rounded-md border border-slate-200 bg-white px-3 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus-visible:border-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/35 focus-visible:ring-offset-2 focus-visible:ring-offset-white motion-safe:transition-colors";
+const buttonClassName =
+  "h-12 w-full rounded-md bg-gradient-to-b from-slate-900 to-slate-950 text-sm font-semibold text-white shadow-sm shadow-slate-900/20 hover:from-slate-800 hover:to-slate-900 active:from-slate-950 active:to-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-500 disabled:opacity-70 motion-safe:transition-colors";
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -22,6 +34,17 @@ export default function LoginPage() {
   const [accessMessage, setAccessMessage] = useState<string | null>(null);
   const [isBlocked, setIsBlocked] = useState(false);
   const effectiveAccessMessage = accessMessage ?? noticeMessage;
+  const header = (
+    <div className="text-center">
+      <p className="text-ink-3d text-lg font-semibold leading-tight tracking-[0.18em] text-slate-700">
+        온누리 종합식품
+      </p>
+      <p className="text-ink-3d mt-1 text-lg font-bold leading-tight tracking-[0.06em] text-slate-900">
+        재고 조사 시스템
+      </p>
+      <div className="mx-auto mt-2 h-px w-16 bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
+    </div>
+  );
 
   useEffect(() => {
     let isActive = true;
@@ -151,13 +174,21 @@ export default function LoginPage() {
 
   if (checking) {
     return (
-      <div className="min-h-screen bg-[#F9F8F6] px-4 py-10">
-        <div className="mx-auto w-full max-w-sm animate-pulse space-y-4">
-          <div className="h-7 w-28 rounded bg-slate-200" />
-          <div className="h-4 w-48 rounded bg-slate-200" />
-          <div className="h-12 w-full rounded bg-slate-200" />
-          <div className="h-12 w-full rounded bg-slate-200" />
-          <div className="h-12 w-full rounded bg-slate-200" />
+      <div className={pageClassName}>
+        <div
+          className={`${containerClassName} animate-pulse motion-reduce:animate-none`}
+        >
+          <div className="flex flex-col items-center gap-2 text-center">
+            <div className="h-3 w-32 rounded-full bg-slate-200" />
+            <div className="h-5 w-40 rounded-full bg-slate-200" />
+          </div>
+          <div className="w-full space-y-4 rounded-2xl border border-slate-200 bg-white p-6 sm:p-7">
+            <div className="h-6 w-28 rounded bg-slate-200" />
+            <div className="h-4 w-48 rounded bg-slate-200" />
+            <div className="h-12 w-full rounded bg-slate-200" />
+            <div className="h-12 w-full rounded bg-slate-200" />
+            <div className="h-12 w-full rounded bg-slate-200" />
+          </div>
         </div>
       </div>
     );
@@ -165,74 +196,75 @@ export default function LoginPage() {
 
   if (isBlocked) {
     return (
-      <div className="min-h-screen bg-[#F9F8F6] px-4 py-10">
-        <div className="mx-auto w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 text-center">
-          <h1 className="text-lg font-semibold text-slate-900">접근 안내</h1>
-          <p className="mt-2 text-sm text-slate-600">
-            {effectiveAccessMessage}
-          </p>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            disabled={signingOut}
-            className="mt-6 h-12 w-full rounded-md bg-slate-900 text-sm font-semibold text-white disabled:opacity-60"
-          >
-            {signingOut ? "로그아웃 중..." : "로그아웃"}
-          </button>
+      <div className={pageClassName}>
+        <div className={containerClassName}>
+          {header}
+          <div className={`${cardClassName} text-center`}>
+            <h1 className="text-lg font-semibold text-slate-900">접근 안내</h1>
+            <p className="mt-2 text-sm text-slate-600">
+              {effectiveAccessMessage}
+            </p>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className={`mt-6 ${buttonClassName}`}
+            >
+              {signingOut ? "로그아웃 중..." : "로그아웃"}
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F9F8F6] px-4 py-10">
-      <div className="mx-auto w-full max-w-sm text-center">
-        <p className="mb-4 text-base font-semibold text-slate-800">
-          온누리종합식품 재고조사 시스템
-        </p>
-        <div className="rounded-lg border border-slate-200 bg-white p-6">
-          <h1 className="text-2xl font-semibold text-slate-900">로그인</h1>
-          <p className="mt-2 text-sm text-slate-600">
-            이메일과 비밀번호를 입력하세요.
-          </p>
+    <div className={pageClassName}>
+      <div className={containerClassName}>
+        {header}
+        <div className={cardClassName}>
+          <div className="text-left">
+            <h1 className="text-2xl font-semibold text-slate-900">로그인</h1>
+            <p className="mt-2 text-sm text-slate-600">
+              이메일과 비밀번호를 입력하세요.
+            </p>
+          </div>
 
           {effectiveAccessMessage && (
-            <div className="mt-4 rounded-md bg-slate-100 p-3 text-sm text-slate-700">
+            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
               {effectiveAccessMessage}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4 text-left">
             <div>
-              <label className="text-sm font-medium text-slate-700">
-                이메일
-              </label>
+              <label className={labelClassName}>이메일</label>
               <input
                 type="email"
                 autoComplete="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="mt-2 h-12 w-full rounded-md border border-slate-300 bg-white px-3 text-base text-slate-900 focus:border-slate-500 focus:outline-none text-center"
+                placeholder="name@company.com"
+                className={inputClassName}
                 required
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-slate-700">
-                비밀번호
-              </label>
+              <label className={labelClassName}>비밀번호</label>
               <input
                 type="password"
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="mt-2 h-12 w-full rounded-md border border-slate-300 bg-white px-3 text-base text-slate-900 focus:border-slate-500 focus:outline-none text-center"
+                placeholder="********"
+                className={inputClassName}
                 required
               />
             </div>
 
             {formError && (
-              <div className="rounded-md bg-slate-100 p-3 text-sm text-slate-700">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                 {formError}
               </div>
             )}
@@ -240,7 +272,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="h-12 w-full rounded-md bg-slate-900 text-sm font-semibold text-white disabled:opacity-60"
+              className={buttonClassName}
             >
               {submitting ? "로그인 중..." : "로그인"}
             </button>

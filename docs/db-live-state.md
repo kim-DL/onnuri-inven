@@ -265,6 +265,18 @@ where n.nspname='public'
 - Paste the result rows below. If 0 rows are returned, log a blocker (contract breach: code calls missing RPCs) and trigger Repair Gate.
 
 Result (awaiting SQL Editor output)
+[
+  {
+    "proname": "admin_set_user_display_name",
+    "args": "p_user_id uuid, p_display_name text",
+    "def": "CREATE OR REPLACE FUNCTION public.admin_set_user_display_name(p_user_id uuid, p_display_name text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\r\nbegin\r\n  if auth.uid() is null then\r\n    raise exception 'not authenticated';\r\n  end if;\r\n\r\n  if not public.is_active_user() then\r\n    raise exception 'inactive user';\r\n  end if;\r\n\r\n  if not public.is_admin() then\r\n    raise exception 'admin only';\r\n  end if;\r\n\r\n  update public.users_profile\r\n  set display_name = nullif(trim(p_display_name), '')\r\n  where user_id = p_user_id;\r\nend;\r\n$function$\n"
+  },
+  {
+    "proname": "get_inventory_logs_for_product",
+    "args": "p_product_id uuid, p_limit integer",
+    "def": "CREATE OR REPLACE FUNCTION public.get_inventory_logs_for_product(p_product_id uuid, p_limit integer DEFAULT 50)\n RETURNS TABLE(id uuid, product_id uuid, zone_id uuid, delta integer, before_stock integer, after_stock integer, note text, created_at timestamp with time zone, created_by uuid, actor_name text)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\r\nbegin\r\n  -- auth / active checks\r\n  if auth.uid() is null then\r\n    raise exception 'not authenticated';\r\n  end if;\r\n\r\n  if not public.is_active_user() then\r\n    raise exception 'inactive user';\r\n  end if;\r\n\r\n  return query\r\n  select\r\n    l.id,\r\n    l.product_id,\r\n    l.zone_id,\r\n    l.delta,\r\n    l.before_stock,\r\n    l.after_stock,\r\n    l.note,\r\n    l.created_at,\r\n    l.created_by,\r\n    nullif(trim(up.display_name), '') as actor_name\r\n  from public.inventory_logs l\r\n  left join public.users_profile up\r\n    on up.user_id = l.created_by\r\n  where l.product_id = p_product_id\r\n  order by l.created_at desc\r\n  limit greatest(1, least(p_limit, 200));\r\nend;\r\n$function$\n"
+  }
+]
 
 - admin_set_user_display_name: (pending)
 - get_inventory_logs_for_product: (pending)

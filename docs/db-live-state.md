@@ -241,3 +241,11 @@ Unblocked: Live outputs were captured via Supabase SQL Editor on 2026-01-19. The
 ## Next step
 
 Proceed to Task C (EXPLAIN evidence) per `docs/todaywork.md`.
+
+---
+
+## Task B Addendum — Missing function defs
+
+Goal: capture definitions for `admin_set_user_display_name` and `get_inventory_logs_for_product` (both used in code).
+
+Attempted via PostgREST (service role key, `Accept-Profile=pg_catalog` / `postgres`) against `pg_proc` and `pg_get_functiondef`; all requests returned 406 Not Acceptable, so definitions could not be retrieved from this environment. SQL Editor output is still required to confirm these functions exist and to record their definitions. If the SQL query returns 0 rows in the Editor, that would indicate a contract breach (code calls missing RPC).

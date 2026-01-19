@@ -248,4 +248,23 @@ Proceed to Task C (EXPLAIN evidence) per `docs/todaywork.md`.
 
 Goal: capture definitions for `admin_set_user_display_name` and `get_inventory_logs_for_product` (both used in code).
 
-Attempted via PostgREST (service role key, `Accept-Profile=pg_catalog` / `postgres`) against `pg_proc` and `pg_get_functiondef`; all requests returned 406 Not Acceptable, so definitions could not be retrieved from this environment. SQL Editor output is still required to confirm these functions exist and to record their definitions. If the SQL query returns 0 rows in the Editor, that would indicate a contract breach (code calls missing RPC).
+Attempted via PostgREST (service role key, `Accept-Profile=pg_catalog` / `postgres`) against `pg_proc` and `pg_get_functiondef`; all requests returned 406 Not Acceptable, so definitions could not be retrieved from this environment.
+
+Human action (SQL Editor):
+
+```sql
+select p.proname,
+       pg_get_function_identity_arguments(p.oid) as args,
+       pg_get_functiondef(p.oid) as def
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname='public'
+  and p.proname in ('admin_set_user_display_name','get_inventory_logs_for_product');
+```
+
+- Paste the result rows below. If 0 rows are returned, log a blocker (contract breach: code calls missing RPCs) and trigger Repair Gate.
+
+Result (awaiting SQL Editor output)
+
+- admin_set_user_display_name: (pending)
+- get_inventory_logs_for_product: (pending)

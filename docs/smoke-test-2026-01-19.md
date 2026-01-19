@@ -1,6 +1,6 @@
 # Smoke Test — 2026-01-19
 
-Status: NOT RUN (needs human verification) — run by project maintainer/QA in staging before PR merge.
+Status: NOT RUN (needs human verification) — run by project maintainer/QA in staging (preferred) or production (minimal smoke) after DB patch is applied.
 
 ## Checklist
 

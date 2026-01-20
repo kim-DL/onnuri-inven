@@ -7,6 +7,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
 import { resizeImageForUpload } from "@/lib/resizeImageForUpload";
 import { supabase } from "@/lib/supabaseClient";
+import { useExpiryWarningDays } from "@/lib/useExpiryWarningDays";
 
 type Product = {
   id: string;
@@ -592,7 +593,6 @@ function normalizeOptional(value: string) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-const DEFAULT_EXPIRY_WARNING_DAYS = 100;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function getDaysLeft(dateValue: string) {
@@ -715,9 +715,10 @@ export default function ProductDetailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
-  const [expiryWarningDays, setExpiryWarningDays] = useState(
-    DEFAULT_EXPIRY_WARNING_DAYS
-  );
+  const expiryWarning = useExpiryWarningDays({
+    enabled: authState === "authed",
+  });
+  const expiryWarningDays = expiryWarning.value;
   const [zones, setZones] = useState<Zone[]>([]);
   const [zonesState, setZonesState] = useState<DataState>("idle");
   const [zonesError, setZonesError] = useState<string | null>(null);
@@ -967,37 +968,6 @@ export default function ProductDetailPage() {
 
     let cancelled = false;
 
-    const loadExpiryWarningDays = async () => {
-      const { data, error } = await supabase.rpc("get_expiry_warning_days");
-      if (cancelled) {
-        return;
-      }
-      if (error) {
-        console.error("Failed to fetch expiry warning days", error);
-        setExpiryWarningDays(DEFAULT_EXPIRY_WARNING_DAYS);
-        return;
-      }
-      if (typeof data === "number") {
-        setExpiryWarningDays(data);
-      } else {
-        setExpiryWarningDays(DEFAULT_EXPIRY_WARNING_DAYS);
-      }
-    };
-
-    loadExpiryWarningDays();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authState]);
-
-  useEffect(() => {
-    if (authState !== "authed") {
-      return;
-    }
-
-    let cancelled = false;
-
     const loadData = async () => {
       if (!hasValidId) {
         setErrorMessage("상품 정보를 불러오지 못했어요.");
@@ -1104,6 +1074,11 @@ export default function ProductDetailPage() {
 
   const hasError =
     authState === "error" || (authState === "authed" && dataState === "error");
+
+  const expiryWarningError =
+    authState === "authed" && expiryWarning.status === "error"
+      ? "유통기한 기준을 불러오지 못했어요."
+      : null;
 
   const manufacturerLabel = formatOptionalLabel(product?.manufacturer);
   const zoneLabel = formatOptionalLabel(zoneName);
@@ -1451,7 +1426,6 @@ export default function ProductDetailPage() {
     } else {
       delta = adjustMode === "in" ? quantity : -quantity;
     }
-
     const { error } = await supabase.rpc("adjust_stock", {
       p_product_id: productId,
       p_delta: delta,
@@ -1572,6 +1546,9 @@ export default function ProductDetailPage() {
               </Link>
               <h1 style={titleStyle}>{product.name}</h1>
             </header>
+            {expiryWarningError ? (
+              <p style={helperTextStyle}>{expiryWarningError}</p>
+            ) : null}
 
             <div style={cardStyle}>
               <div style={infoTopRowStyle}>
@@ -1824,7 +1801,7 @@ export default function ProductDetailPage() {
               aria-labelledby="edit-title"
             >
               <h2 id="edit-title" style={modalTitleStyle}>
-                속성정보 수정
+                상품 수정
               </h2>
               <div style={modalFieldStyle}>
                 <span style={labelStyle}>사진</span>

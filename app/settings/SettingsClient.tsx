@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseClient";
+import { useExpiryWarningDays } from "@/lib/useExpiryWarningDays";
 
 type AuthState = "checking" | "authed" | "blocked" | "error";
 type DataState = "idle" | "loading" | "ready" | "error";
@@ -28,8 +29,6 @@ type UserActionState = {
   userId: string;
   type: "toggle" | "rename";
 };
-
-const DEFAULT_EXPIRY_WARNING_DAYS = 100;
 
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
@@ -315,14 +314,12 @@ export default function SettingsPage() {
   const queryString = searchParams.toString();
   const backHref = queryString ? `/products?${queryString}` : "/products";
   const [authState, setAuthState] = useState<AuthState>("checking");
-  const [dataState, setDataState] = useState<DataState>("idle");
   const [profileRole, setProfileRole] = useState<string | null>(null);
-  const [expiryDays, setExpiryDays] = useState(DEFAULT_EXPIRY_WARNING_DAYS);
-  const [inputValue, setInputValue] = useState(
-    String(DEFAULT_EXPIRY_WARNING_DAYS)
-  );
+  const expiryWarning = useExpiryWarningDays({
+    enabled: authState === "authed",
+  });
+  const [inputValue, setInputValue] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [settingsError, setSettingsError] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
@@ -421,45 +418,6 @@ export default function SettingsPage() {
   }, [router]);
 
   useEffect(() => {
-    if (authState !== "authed") {
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadSettings = async () => {
-      setDataState("loading");
-      setSettingsError(null);
-
-      const { data, error } = await supabase.rpc("get_expiry_warning_days");
-      if (cancelled) {
-        return;
-      }
-
-      if (error) {
-        console.error("Failed to fetch expiry warning days", error);
-        setSettingsError("설정을 불러오지 못했어요.");
-        setExpiryDays(DEFAULT_EXPIRY_WARNING_DAYS);
-        setInputValue(String(DEFAULT_EXPIRY_WARNING_DAYS));
-        setDataState("ready");
-        return;
-      }
-
-      const nextValue =
-        typeof data === "number" ? data : DEFAULT_EXPIRY_WARNING_DAYS;
-      setExpiryDays(nextValue);
-      setInputValue(String(nextValue));
-      setDataState("ready");
-    };
-
-    loadSettings();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authState]);
-
-  useEffect(() => {
     if (authState !== "authed" || profileRole !== "admin") {
       return;
     }
@@ -501,10 +459,18 @@ export default function SettingsPage() {
 
   const isLoading =
     authState === "checking" ||
-    (authState === "authed" && (dataState === "idle" || dataState === "loading"));
+    (authState === "authed" &&
+      (expiryWarning.status === "idle" ||
+        expiryWarning.status === "loading"));
 
-  const hasError =
-    authState === "error" || (authState === "authed" && dataState === "error");
+  const hasError = authState === "error";
+
+  const settingsError =
+    authState === "authed" && expiryWarning.status === "error"
+      ? "설정을 불러오지 못했어요."
+      : null;
+  const expiryDays = expiryWarning.value;
+  const resolvedInputValue = inputValue ?? String(expiryWarning.value);
 
   const isAdmin = profileRole === "admin";
   const isUserMutating = userActionState !== null;
@@ -518,10 +484,10 @@ export default function SettingsPage() {
       return;
     }
 
-      setSaveError(null);
-      setSaveSuccess(null);
+    setSaveError(null);
+    setSaveSuccess(null);
 
-    const trimmed = inputValue.trim();
+    const trimmed = resolvedInputValue.trim();
     if (!/^\d+$/.test(trimmed)) {
       setSaveError("1~365 사이 정수를 입력해 주세요.");
       return;
@@ -560,10 +526,10 @@ export default function SettingsPage() {
       return;
     }
 
-    setExpiryDays(nextValue);
     setInputValue(String(nextValue));
     setSaveSuccess("저장했어요.");
     setIsSaving(false);
+    void expiryWarning.refetch();
   };
 
   const handleToggleUserActive = async (profile: UserProfileRow) => {
@@ -872,7 +838,7 @@ export default function SettingsPage() {
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    value={inputValue}
+                    value={resolvedInputValue}
                     onChange={(event) => setInputValue(event.currentTarget.value)}
                     placeholder={`${expiryDays}`}
                     style={inputStyle}

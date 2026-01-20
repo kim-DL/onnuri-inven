@@ -309,6 +309,13 @@ const buttonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
+const OUTLINE_HIGHLIGHT = "inset 0 1px 0 rgba(255,255,255,0.65)";
+const OUTLINE_SHADOW = "0 1px 2px rgba(0,0,0,0.06)";
+const OUTLINE_DEPTH = `${OUTLINE_HIGHLIGHT}, ${OUTLINE_SHADOW}`;
+const OUTLINE_PRESSED_SHADOW = "inset 0 1px 0 rgba(255,255,255,0.25)";
+const OUTLINE_TRANSITION =
+  "transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease";
+
 const archiveButtonStyle: CSSProperties = {
   minHeight: "44px",
   padding: "0 16px",
@@ -320,6 +327,9 @@ const archiveButtonStyle: CSSProperties = {
   fontWeight: 600,
   cursor: "pointer",
   width: "100%",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.4)",
+  transition: OUTLINE_TRANSITION,
+  transform: "translateY(0)",
 };
 
 const editButtonStyle: CSSProperties = {
@@ -333,6 +343,9 @@ const editButtonStyle: CSSProperties = {
   fontWeight: 600,
   cursor: "pointer",
   width: "100%",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.45)",
+  transition: OUTLINE_TRANSITION,
+  transform: "translateY(0)",
 };
 
 const actionStackStyle: CSSProperties = {
@@ -353,6 +366,9 @@ const actionButtonStyle: CSSProperties = {
   background: "transparent",
   color: "#2E2A27",
   border: "1px solid #E3DED8",
+  boxShadow: OUTLINE_DEPTH,
+  transition: OUTLINE_TRANSITION,
+  transform: "translateY(0)",
 };
 
 const actionButtonAltStyle: CSSProperties = {
@@ -361,6 +377,9 @@ const actionButtonAltStyle: CSSProperties = {
   background: "#FFFFFF",
   color: "#2E2A27",
   border: "1px solid #D6D2CC",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 2px rgba(0,0,0,0.04)",
+  transition: OUTLINE_TRANSITION,
+  transform: "translateY(0)",
 };
 
 const ACTION_TONE_STYLES: Record<
@@ -1626,6 +1645,12 @@ export default function ProductDetailPage() {
                       ...actionButtonStyle,
                       color: ACTION_TONE_STYLES.in.text,
                       background: getActionBackground("in"),
+                      boxShadow:
+                        actionPressed === "in"
+                          ? OUTLINE_PRESSED_SHADOW
+                          : OUTLINE_DEPTH,
+                      transform:
+                        actionPressed === "in" ? "translateY(1px)" : "translateY(0)",
                     }}
                     onClick={() => openAdjustModal("in")}
                     onMouseEnter={() => setActionHover("in")}
@@ -1645,6 +1670,14 @@ export default function ProductDetailPage() {
                       ...actionButtonStyle,
                       color: ACTION_TONE_STYLES.out.text,
                       background: getActionBackground("out"),
+                      boxShadow:
+                        actionPressed === "out"
+                          ? OUTLINE_PRESSED_SHADOW
+                          : OUTLINE_DEPTH,
+                      transform:
+                        actionPressed === "out"
+                          ? "translateY(1px)"
+                          : "translateY(0)",
                     }}
                     onClick={() => openAdjustModal("out")}
                     onMouseEnter={() => setActionHover("out")}

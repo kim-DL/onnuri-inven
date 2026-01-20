@@ -42,7 +42,9 @@ type InventoryLog = {
   note?: string | null;
 };
 
-type AdjustMode = "in" | "out";
+type AdjustMode = "in" | "out" | "adjust";
+type LogType = "in" | "out" | "adjust";
+type ActionTone = "in" | "out";
 
 type AuthState = "checking" | "authed" | "blocked" | "error";
 type DataState = "idle" | "loading" | "ready" | "error";
@@ -255,6 +257,8 @@ const logRowStyle: CSSProperties = {
   padding: "12px",
   borderRadius: "10px",
   border: "1px solid #E3DED8",
+  borderLeftWidth: "4px",
+  borderLeftStyle: "solid",
   background: "#FFFFFF",
 };
 
@@ -262,6 +266,18 @@ const logMetaStyle: CSSProperties = {
   fontSize: "12px",
   color: "#7B736C",
   margin: 0,
+};
+
+const logActorStyle: CSSProperties = {
+  fontWeight: 700,
+  color: "#2E2A27",
+};
+
+const logTypeLineStyle: CSSProperties = {
+  fontSize: "13px",
+  color: "#2E2A27",
+  margin: 0,
+  fontWeight: 700,
 };
 
 const logValueStyle: CSSProperties = {
@@ -294,6 +310,13 @@ const buttonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
+const OUTLINE_HIGHLIGHT = "inset 0 1px 0 rgba(255,255,255,0.65)";
+const OUTLINE_SHADOW = "0 1px 2px rgba(0,0,0,0.06)";
+const OUTLINE_DEPTH = `${OUTLINE_HIGHLIGHT}, ${OUTLINE_SHADOW}`;
+const OUTLINE_PRESSED_SHADOW = "inset 0 1px 0 rgba(255,255,255,0.25)";
+const OUTLINE_TRANSITION =
+  "transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease";
+
 const archiveButtonStyle: CSSProperties = {
   minHeight: "44px",
   padding: "0 16px",
@@ -304,6 +327,10 @@ const archiveButtonStyle: CSSProperties = {
   fontSize: "14px",
   fontWeight: 600,
   cursor: "pointer",
+  width: "100%",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.4)",
+  transition: OUTLINE_TRANSITION,
+  transform: "translateY(0)",
 };
 
 const editButtonStyle: CSSProperties = {
@@ -317,6 +344,15 @@ const editButtonStyle: CSSProperties = {
   fontWeight: 600,
   cursor: "pointer",
   width: "100%",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.45)",
+  transition: OUTLINE_TRANSITION,
+  transform: "translateY(0)",
+};
+
+const actionStackStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
 };
 
 const actionRowStyle: CSSProperties = {
@@ -328,6 +364,12 @@ const actionRowStyle: CSSProperties = {
 const actionButtonStyle: CSSProperties = {
   ...buttonStyle,
   width: "100%",
+  background: "transparent",
+  color: "#2E2A27",
+  border: "1px solid #E3DED8",
+  boxShadow: OUTLINE_DEPTH,
+  transition: OUTLINE_TRANSITION,
+  transform: "translateY(0)",
 };
 
 const actionButtonAltStyle: CSSProperties = {
@@ -336,6 +378,25 @@ const actionButtonAltStyle: CSSProperties = {
   background: "#FFFFFF",
   color: "#2E2A27",
   border: "1px solid #D6D2CC",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 2px rgba(0,0,0,0.04)",
+  transition: OUTLINE_TRANSITION,
+  transform: "translateY(0)",
+};
+
+const ACTION_TONE_STYLES: Record<
+  "in" | "out",
+  { text: string; hover: string; pressed: string }
+> = {
+  in: {
+    text: "#2F6F46",
+    hover: "rgba(47, 111, 70, 0.12)",
+    pressed: "rgba(47, 111, 70, 0.22)",
+  },
+  out: {
+    text: "#9B2C2C",
+    hover: "rgba(155, 44, 44, 0.12)",
+    pressed: "rgba(155, 44, 44, 0.22)",
+  },
 };
 
 const modalOverlayStyle: CSSProperties = {
@@ -452,6 +513,40 @@ function formatDelta(delta: number) {
     return `+${delta}`;
   }
   return `${delta}`;
+}
+
+const LOG_TYPE_LABELS: Record<LogType, string> = {
+  in: "입고",
+  out: "출고",
+  adjust: "조정",
+};
+
+const LOG_TYPE_BORDER_COLORS: Record<LogType, string> = {
+  in: "#16A34A",
+  out: "#DC2626",
+  adjust: "#64748B",
+};
+
+function getLogType(log: InventoryLog): LogType {
+  const note = log.note?.trim().toUpperCase();
+  if (note === "ADJUST") {
+    return "adjust";
+  }
+  if (log.delta > 0) {
+    return "in";
+  }
+  if (log.delta < 0) {
+    return "out";
+  }
+  return "adjust";
+}
+
+function formatLogTitle(log: InventoryLog) {
+  const type = getLogType(log);
+  if (type === "adjust") {
+    return LOG_TYPE_LABELS.adjust;
+  }
+  return `${LOG_TYPE_LABELS[type]} ${formatDelta(log.delta)}`;
 }
 
 function formatTimestamp(raw: string) {
@@ -652,6 +747,8 @@ export default function ProductDetailPage() {
     string | null
   >(null);
   const [isAdjusting, setIsAdjusting] = useState(false);
+  const [actionHover, setActionHover] = useState<ActionTone | null>(null);
+  const [actionPressed, setActionPressed] = useState<ActionTone | null>(null);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [archiveReason, setArchiveReason] = useState("");
   const [archiveError, setArchiveError] = useState<string | null>(null);
@@ -668,6 +765,26 @@ export default function ProductDetailPage() {
     setAdjustQty("");
     setAdjustError(null);
     setAdjustValidationError(null);
+  };
+
+  const getActionBackground = (tone: ActionTone) => {
+    const toneStyle = ACTION_TONE_STYLES[tone];
+    if (actionPressed === tone) {
+      return toneStyle.pressed;
+    }
+    if (actionHover === tone) {
+      return toneStyle.hover;
+    }
+    return "transparent";
+  };
+
+  const clearActionStates = (tone: ActionTone) => {
+    setActionHover((prev) => (prev === tone ? null : prev));
+    setActionPressed((prev) => (prev === tone ? null : prev));
+  };
+
+  const releaseActionPressed = (tone: ActionTone) => {
+    setActionPressed((prev) => (prev === tone ? null : prev));
   };
 
   const loadZones = async () => {
@@ -1265,13 +1382,26 @@ export default function ProductDetailPage() {
 
     const normalized = adjustQty.trim();
     if (!/^\d+$/.test(normalized)) {
-      setAdjustValidationError("수량을 올바르게 입력해 주세요.");
+      setAdjustValidationError(
+        adjustMode === "adjust"
+          ? "수량은 0 이상의 정수로 입력해 주세요."
+          : "수량을 올바르게 입력해 주세요."
+      );
       return;
     }
 
     const quantity = Number(normalized);
-    if (!Number.isInteger(quantity) || quantity <= 0) {
-      setAdjustValidationError("수량을 올바르게 입력해 주세요.");
+    const isAdjust = adjustMode === "adjust";
+    if (
+      !Number.isInteger(quantity) ||
+      quantity < 0 ||
+      (!isAdjust && quantity === 0)
+    ) {
+      setAdjustValidationError(
+        isAdjust
+          ? "수량은 0 이상의 정수로 입력해 주세요."
+          : "수량을 올바르게 입력해 주세요."
+      );
       return;
     }
 
@@ -1279,11 +1409,27 @@ export default function ProductDetailPage() {
     setAdjustError(null);
     setIsAdjusting(true);
 
-    const delta = adjustMode === "in" ? quantity : -quantity;
+    let delta = 0;
+    if (isAdjust) {
+      const { data, error } = await supabase
+        .from("inventory")
+        .select("stock")
+        .eq("product_id", productId)
+        .maybeSingle();
+      if (error || !data) {
+        console.error("Failed to fetch inventory before adjust", error);
+        setAdjustError("재고 정보를 불러오지 못했어요.");
+        setIsAdjusting(false);
+        return;
+      }
+      delta = quantity - (data.stock ?? 0);
+    } else {
+      delta = adjustMode === "in" ? quantity : -quantity;
+    }
     const { error } = await supabase.rpc("adjust_stock", {
       p_product_id: productId,
       p_delta: delta,
-      p_note: null,
+      p_note: isAdjust ? "ADJUST" : null,
     });
 
     if (error) {
@@ -1468,46 +1614,91 @@ export default function ProductDetailPage() {
             </div>
 
             <div style={cardStyle}>
-              <div style={actionRowStyle}>
-                <button
-                  type="button"
-                  style={actionButtonStyle}
-                  onClick={() => openAdjustModal("in")}
-                  disabled={isAdjusting}
-                >
-                  입고
-                </button>
+              <div style={actionStackStyle}>
+                <div style={actionRowStyle}>
+                  <button
+                    type="button"
+                    style={{
+                      ...actionButtonStyle,
+                      color: ACTION_TONE_STYLES.in.text,
+                      background: getActionBackground("in"),
+                      boxShadow:
+                        actionPressed === "in"
+                          ? OUTLINE_PRESSED_SHADOW
+                          : OUTLINE_DEPTH,
+                      transform:
+                        actionPressed === "in" ? "translateY(1px)" : "translateY(0)",
+                    }}
+                    onClick={() => openAdjustModal("in")}
+                    onMouseEnter={() => setActionHover("in")}
+                    onMouseLeave={() => clearActionStates("in")}
+                    onMouseDown={() => setActionPressed("in")}
+                    onMouseUp={() => releaseActionPressed("in")}
+                    onTouchStart={() => setActionPressed("in")}
+                    onTouchEnd={() => releaseActionPressed("in")}
+                    onTouchCancel={() => releaseActionPressed("in")}
+                    disabled={isAdjusting}
+                  >
+                    입고
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      ...actionButtonStyle,
+                      color: ACTION_TONE_STYLES.out.text,
+                      background: getActionBackground("out"),
+                      boxShadow:
+                        actionPressed === "out"
+                          ? OUTLINE_PRESSED_SHADOW
+                          : OUTLINE_DEPTH,
+                      transform:
+                        actionPressed === "out"
+                          ? "translateY(1px)"
+                          : "translateY(0)",
+                    }}
+                    onClick={() => openAdjustModal("out")}
+                    onMouseEnter={() => setActionHover("out")}
+                    onMouseLeave={() => clearActionStates("out")}
+                    onMouseDown={() => setActionPressed("out")}
+                    onMouseUp={() => releaseActionPressed("out")}
+                    onTouchStart={() => setActionPressed("out")}
+                    onTouchEnd={() => releaseActionPressed("out")}
+                    onTouchCancel={() => releaseActionPressed("out")}
+                    disabled={isAdjusting}
+                  >
+                    출고
+                  </button>
+                </div>
                 <button
                   type="button"
                   style={actionButtonAltStyle}
-                  onClick={() => openAdjustModal("out")}
+                  onClick={() => openAdjustModal("adjust")}
                   disabled={isAdjusting}
                 >
-                  출고
+                  조정
                 </button>
+                <div style={actionRowStyle}>
+                  <button
+                    type="button"
+                    style={archiveButtonStyle}
+                    onClick={openArchiveModal}
+                    disabled={isArchiving}
+                  >
+                    비활성화
+                  </button>
+                  <button
+                    type="button"
+                    style={editButtonStyle}
+                    onClick={openEditModal}
+                    disabled={isSaving}
+                  >
+                    속성정보 수정
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                style={editButtonStyle}
-                onClick={openEditModal}
-                disabled={isSaving}
-              >
-                수정
-              </button>
               {adjustMode ? null : adjustError ? (
                 <p style={helperTextStyle}>{adjustError}</p>
               ) : null}
-            </div>
-
-            <div style={cardStyle}>
-              <button
-                type="button"
-                style={archiveButtonStyle}
-                onClick={openArchiveModal}
-                disabled={isArchiving}
-              >
-                비활성화(아카이브)
-              </button>
             </div>
 
             <section style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -1519,13 +1710,20 @@ export default function ProductDetailPage() {
               ) : (
                 <div style={logListStyle}>
                   {logs.map((log) => (
-                    <div key={log.id} style={logRowStyle}>
+                    <div
+                      key={log.id}
+                      style={{
+                        ...logRowStyle,
+                        borderLeftColor: LOG_TYPE_BORDER_COLORS[getLogType(log)],
+                      }}
+                    >
                       <p style={logMetaStyle}>
-                        {formatTimestamp(log.created_at)} · {getActorLabel(log)}
+                        {formatTimestamp(log.created_at)} ·{" "}
+                        <span style={logActorStyle}>{getActorLabel(log)}</span>
                       </p>
+                      <p style={logTypeLineStyle}>{formatLogTitle(log)}</p>
                       <p style={logValueStyle}>
-                        {formatDelta(log.delta)} · {log.before_stock} →{" "}
-                        {log.after_stock}
+                        {log.before_stock} → {log.after_stock}
                       </p>
                     </div>
                   ))}
@@ -1543,8 +1741,15 @@ export default function ProductDetailPage() {
               aria-labelledby="adjust-title"
             >
               <h2 id="adjust-title" style={modalTitleStyle}>
-                {adjustMode === "in" ? "입고 수량" : "출고 수량"}
+                {adjustMode === "in"
+                  ? "입고 수량"
+                  : adjustMode === "out"
+                    ? "출고 수량"
+                    : "조정 수량"}
               </h2>
+              {adjustMode === "adjust" ? (
+                <p style={helperTextStyle}>현재 재고: {stock}</p>
+              ) : null}
               <input
                 type="text"
                 inputMode="numeric"
@@ -1556,8 +1761,10 @@ export default function ProductDetailPage() {
                     setAdjustValidationError(null);
                   }
                 }}
-                placeholder="수량"
-                aria-label="수량 입력"
+                placeholder={adjustMode === "adjust" ? "조정 후 수량" : "수량"}
+                aria-label={
+                  adjustMode === "adjust" ? "조정 후 수량 입력" : "수량 입력"
+                }
                 style={modalInputStyle}
               />
               {adjustValidationError ? (

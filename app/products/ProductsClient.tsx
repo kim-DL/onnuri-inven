@@ -5,6 +5,7 @@ import type { CompositionEvent, CSSProperties } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
+import { useExpiryWarningDays } from "../../lib/useExpiryWarningDays";
 import {
   ZONE_KEYWORDS,
   parseSearchTokens,
@@ -359,7 +360,6 @@ const floatingAddButtonStyle: CSSProperties = {
   zIndex: 10,
 };
 
-const DEFAULT_EXPIRY_WARNING_DAYS = 100;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function getDaysLeft(dateValue: string) {
@@ -447,9 +447,9 @@ export default function ProductsPage() {
   const [stockByProductId, setStockByProductId] = useState<Map<string, number>>(
     new Map()
   );
-  const [expiryWarningDays, setExpiryWarningDays] = useState(
-    DEFAULT_EXPIRY_WARNING_DAYS
-  );
+  const { value: expiryWarningDays } = useExpiryWarningDays({
+    enabled: authState === "authed",
+  });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -543,8 +543,8 @@ export default function ProductsPage() {
       setDataState("loading");
       setErrorMessage(null);
 
-      const [zonesResult, productsResult, inventoryResult, expiryResult] =
-        await Promise.all([
+      const [zonesResult, productsResult, inventoryResult] = await Promise.all(
+        [
           supabase.from("zones").select("id, name").order("sort_order"),
           supabase
             .from("products")
@@ -552,8 +552,8 @@ export default function ProductsPage() {
             .eq("active", true)
             .order("name"),
           supabase.from("inventory").select("product_id, stock"),
-          supabase.rpc("get_expiry_warning_days"),
-        ]);
+        ]
+      );
 
       if (cancelled) {
         return;
@@ -572,15 +572,6 @@ export default function ProductsPage() {
         setErrorMessage("상품 목록을 불러오지 못했어요.");
         setDataState("error");
         return;
-      }
-
-      if (expiryResult.error) {
-        console.error("Failed to fetch expiry warning days", expiryResult.error);
-        setExpiryWarningDays(DEFAULT_EXPIRY_WARNING_DAYS);
-      } else if (typeof expiryResult.data === "number") {
-        setExpiryWarningDays(expiryResult.data);
-      } else {
-        setExpiryWarningDays(DEFAULT_EXPIRY_WARNING_DAYS);
       }
 
       const stockMap = new Map<string, number>();

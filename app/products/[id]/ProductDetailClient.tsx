@@ -7,6 +7,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
 import { resizeImageForUpload } from "@/lib/resizeImageForUpload";
 import { supabase } from "@/lib/supabaseClient";
+import { useExpiryWarningDays } from "@/lib/useExpiryWarningDays";
 
 type Product = {
   id: string;
@@ -497,7 +498,6 @@ function normalizeOptional(value: string) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-const DEFAULT_EXPIRY_WARNING_DAYS = 100;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function getDaysLeft(dateValue: string) {
@@ -620,9 +620,9 @@ export default function ProductDetailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
-  const [expiryWarningDays, setExpiryWarningDays] = useState(
-    DEFAULT_EXPIRY_WARNING_DAYS
-  );
+  const { value: expiryWarningDays } = useExpiryWarningDays({
+    enabled: authState === "authed",
+  });
   const [zones, setZones] = useState<Zone[]>([]);
   const [zonesState, setZonesState] = useState<DataState>("idle");
   const [zonesError, setZonesError] = useState<string | null>(null);
@@ -842,37 +842,6 @@ export default function ProductDetailPage() {
       cancelled = true;
     };
   }, [router]);
-
-  useEffect(() => {
-    if (authState !== "authed") {
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadExpiryWarningDays = async () => {
-      const { data, error } = await supabase.rpc("get_expiry_warning_days");
-      if (cancelled) {
-        return;
-      }
-      if (error) {
-        console.error("Failed to fetch expiry warning days", error);
-        setExpiryWarningDays(DEFAULT_EXPIRY_WARNING_DAYS);
-        return;
-      }
-      if (typeof data === "number") {
-        setExpiryWarningDays(data);
-      } else {
-        setExpiryWarningDays(DEFAULT_EXPIRY_WARNING_DAYS);
-      }
-    };
-
-    loadExpiryWarningDays();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authState]);
 
   useEffect(() => {
     if (authState !== "authed") {

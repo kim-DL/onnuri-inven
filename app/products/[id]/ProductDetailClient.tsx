@@ -620,9 +620,10 @@ export default function ProductDetailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
-  const { value: expiryWarningDays } = useExpiryWarningDays({
+  const expiryWarning = useExpiryWarningDays({
     enabled: authState === "authed",
   });
+  const expiryWarningDays = expiryWarning.value;
   const [zones, setZones] = useState<Zone[]>([]);
   const [zonesState, setZonesState] = useState<DataState>("idle");
   const [zonesError, setZonesError] = useState<string | null>(null);
@@ -956,6 +957,11 @@ export default function ProductDetailPage() {
 
   const hasError =
     authState === "error" || (authState === "authed" && dataState === "error");
+
+  const expiryWarningError =
+    authState === "authed" && expiryWarning.status === "error"
+      ? "유통기한 기준을 불러오지 못했어요."
+      : null;
 
   const manufacturerLabel = formatOptionalLabel(product?.manufacturer);
   const zoneLabel = formatOptionalLabel(zoneName);
@@ -1394,6 +1400,9 @@ export default function ProductDetailPage() {
               </Link>
               <h1 style={titleStyle}>{product.name}</h1>
             </header>
+            {expiryWarningError ? (
+              <p style={helperTextStyle}>{expiryWarningError}</p>
+            ) : null}
 
             <div style={cardStyle}>
               <div style={infoTopRowStyle}>

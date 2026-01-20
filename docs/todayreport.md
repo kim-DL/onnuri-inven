@@ -1,33 +1,33 @@
 ﻿# Today Report - Expiry Warning Cache
 
-## Goal
-Reduce repeated calls to public.get_expiry_warning_days() by consolidating into a shared client cache and hook; ensure settings save triggers refetch.
+## Context
+- Goal: `get_expiry_warning_days` fetch must be once per session in production, with a single refetch only after settings save.
+- Scope: Front-end cache/hook + call sites + report.
 
-## Summary of Changes
-- Added useExpiryWarningDays hook with module-level cache, shared promise, and listener subscriptions to dedupe RPC calls.
-- Replaced direct RPC calls in products list, product detail, and settings pages with the shared hook.
-- Settings save now triggers refetch to update cache after set_expiry_warning_days.
+## Root Cause
+- Module-scope cache was not shared across route chunks, so navigation created duplicate module instances and duplicate RPC calls.
+- Mixed import paths increased the chance of multiple module copies.
 
-## Files Changed (with rationale)
-- lib/useExpiryWarningDays.ts: new hook plus cache to keep one RPC per session and allow refetch.
-- app/products/ProductsClient.tsx: removed inline RPC call; use hook value for expiry badges.
-- app/products/[id]/ProductDetailClient.tsx: removed inline RPC call; use hook value for expiry badge logic.
-- app/settings/SettingsClient.tsx: replaced RPC load with hook; derive UI errors from hook status; refetch after save.
+## Fix Approach
+- Use a `globalThis`-backed cache that stores the value, shared in-flight promise, last error, and listeners.
+- Only fetch on first mount when the global cache is empty; no implicit refetch on navigation.
+- Settings save calls explicit `refetch()`; all call sites use a single canonical import path.
+- Surface a short inline error message when the RPC fails, while logging details to console.
 
-## Caching Behavior
-- First authed page to mount triggers the RPC; other pages reuse cached value.
-- Shared promise prevents concurrent duplicate calls.
-- Refetch keeps the last cached value to avoid UI flicker, then updates listeners when complete.
+## Files Changed
+- `lib/useExpiryWarningDays.ts`: move cache to `globalThis`, share promise/listeners, prevent auto-refetch.
+- `app/products/ProductsClient.tsx`: normalize import path and show minimal error message.
+- `app/products/[id]/ProductDetailClient.tsx`: use shared hook and show minimal error message.
+- `app/settings/SettingsClient.tsx`: use shared hook and explicit refetch after save (already in baseline).
 
-## Tests Run
-- npm run lint (pass).
+## Verification (prod-mode)
+- Build: PASS (`npm run build`).
+- Start: PASS (`npm run start` -> Ready; process ended due to CLI timeout).
+- RPC fetch count criteria: FAIL (manual Network verification not run in CLI).
+  - 1) Hard reload /products: NOT VERIFIED (needs browser DevTools).
+  - 2) Repeated navigation /products -> /products/[id] -> /settings: NOT VERIFIED.
+  - 3) After saving settings: NOT VERIFIED.
 
-## Manual Test Checklist (not run)
-- Navigate /products -> /products/[id] -> /settings -> back repeatedly; confirm only one RPC call per session.
-- Change expiry warning days in settings; after save, badges reflect new threshold on list and detail.
-- Verify error handling: force RPC failure and confirm short UI message plus console.error.
-
-## Notes
-- Cache persists for the JS session; sign-out does not reset cache yet.
-- If backend returns a non-number, hook treats it as error and falls back to 100.
-- No temporary logging was added.
+## Follow-ups
+- Run the three Network checks in a real browser session to confirm fetch counts.
+- Optionally reset the global cache on sign-out if a hard reset is required between sessions.

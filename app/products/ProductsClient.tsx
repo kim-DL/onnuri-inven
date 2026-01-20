@@ -5,7 +5,7 @@ import type { CompositionEvent, CSSProperties } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-import { useExpiryWarningDays } from "../../lib/useExpiryWarningDays";
+import { useExpiryWarningDays } from "@/lib/useExpiryWarningDays";
 import {
   ZONE_KEYWORDS,
   parseSearchTokens,
@@ -447,9 +447,10 @@ export default function ProductsPage() {
   const [stockByProductId, setStockByProductId] = useState<Map<string, number>>(
     new Map()
   );
-  const { value: expiryWarningDays } = useExpiryWarningDays({
+  const expiryWarning = useExpiryWarningDays({
     enabled: authState === "authed",
   });
+  const expiryWarningDays = expiryWarning.value;
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -635,6 +636,11 @@ export default function ProductsPage() {
 
   const hasError =
     authState === "error" || (authState === "authed" && dataState === "error");
+
+  const expiryWarningError =
+    authState === "authed" && expiryWarning.status === "error"
+      ? "유통기한 기준을 불러오지 못했어요."
+      : null;
 
   const detailQuery = searchParams.toString();
   const detailQuerySuffix = detailQuery ? `?${detailQuery}` : "";
@@ -907,6 +913,9 @@ export default function ProductsPage() {
               aria-label="상품명 또는 제조사 검색"
               style={inputStyle}
             />
+            {expiryWarningError ? (
+              <p style={helperTextStyle}>{expiryWarningError}</p>
+            ) : null}
 
             {isLoading ? (
               <SkeletonList />

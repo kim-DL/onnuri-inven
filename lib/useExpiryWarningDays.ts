@@ -17,20 +17,27 @@ type ExpiryWarningCache = {
   error: Error | null;
   promise: Promise<number> | null;
   requestId: number;
+  listeners: Set<() => void>;
 };
 
 const DEFAULT_EXPIRY_WARNING_DAYS = 100;
+const CACHE_KEY = "__onnuriExpiryWarningCache__" as const;
+type CacheKey = typeof CACHE_KEY;
 
-// Module cache shared across pages to avoid repeated RPC calls.
-const cache: ExpiryWarningCache = {
-  value: null,
-  status: "idle",
-  error: null,
-  promise: null,
-  requestId: 0,
+// Global cache shared across chunks/routes to avoid repeated RPC calls.
+const globalScope = globalThis as typeof globalThis & {
+  [key in CacheKey]?: ExpiryWarningCache;
 };
-
-const listeners = new Set<() => void>();
+const cache =
+  globalScope[CACHE_KEY] ??
+  (globalScope[CACHE_KEY] = {
+    value: null,
+    status: "idle",
+    error: null,
+    promise: null,
+    requestId: 0,
+    listeners: new Set<() => void>(),
+  });
 
 const readSnapshot = (): ExpiryWarningSnapshot => ({
   value: cache.value ?? DEFAULT_EXPIRY_WARNING_DAYS,
@@ -39,7 +46,7 @@ const readSnapshot = (): ExpiryWarningSnapshot => ({
 });
 
 const notify = () => {
-  listeners.forEach((listener) => listener());
+  cache.listeners.forEach((listener) => listener());
 };
 
 const fetchExpiryWarningDays = async () => {
@@ -93,8 +100,11 @@ const ensureExpiryWarningDays = () => {
   if (cache.promise) {
     return cache.promise;
   }
+  if (cache.value !== null) {
+    return Promise.resolve(cache.value);
+  }
   if (cache.status !== "idle") {
-    return Promise.resolve(cache.value ?? DEFAULT_EXPIRY_WARNING_DAYS);
+    return Promise.resolve(DEFAULT_EXPIRY_WARNING_DAYS);
   }
   return startFetch();
 };
@@ -124,9 +134,9 @@ export const useExpiryWarningDays = (
     const handleChange = () => {
       setSnapshot(readSnapshot());
     };
-    listeners.add(handleChange);
+    cache.listeners.add(handleChange);
     return () => {
-      listeners.delete(handleChange);
+      cache.listeners.delete(handleChange);
     };
   }, []);
 

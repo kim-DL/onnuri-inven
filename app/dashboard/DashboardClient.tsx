@@ -90,7 +90,6 @@ const headerLeftStyle: CSSProperties = {
   minWidth: 0,
 };
 
-
 const titleStyle: CSSProperties = {
   fontSize: "22px",
   fontWeight: 700,

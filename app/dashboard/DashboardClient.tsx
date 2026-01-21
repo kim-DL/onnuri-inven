@@ -22,6 +22,11 @@ type ZoneCount = {
   hasError: boolean;
 };
 
+type InventoryRow = {
+  product_id: string;
+  stock: number;
+};
+
 type RecentActivityRow = {
   id: string;
   product_id: string;
@@ -35,40 +40,140 @@ type RecentActivityRow = {
 
 type ActivityType = "IN" | "OUT" | "ADJUST";
 
+type ZoneKpi = {
+  label: string;
+  count: number | null;
+  hasError: boolean;
+};
+
+const ZONE_KPI_LABELS = ["냉동1", "냉동2", "냉장", "상온"] as const;
+
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
-  background: "#F9F8F6",
+  backgroundColor: "#F9F8F6",
+  backgroundImage:
+    "radial-gradient(820px 260px at 50% -90px, rgba(255, 255, 255, 0.9), rgba(249, 248, 246, 0)), linear-gradient(180deg, #FAF9F7 0%, #F9F8F6 40%, #F5F1EC 100%)",
   padding: "16px",
+  paddingBottom: "32px",
+  color: "#2E2A27",
 };
 
 const containerStyle: CSSProperties = {
-  maxWidth: "720px",
+  maxWidth: "760px",
   margin: "0 auto",
   display: "flex",
   flexDirection: "column",
-  gap: "16px",
+  gap: "20px",
 };
 
-const headerStyle: CSSProperties = {
+const headerShellStyle: CSSProperties = {
+  position: "sticky",
+  top: 0,
+  zIndex: 5,
+  padding: "10px 0 8px",
+  background: "rgba(249, 248, 246, 0.96)",
+  backdropFilter: "blur(6px)",
+  borderBottom: "1px solid rgba(227, 222, 216, 0.7)",
+};
+
+const headerRowStyle: CSSProperties = {
   display: "flex",
-  alignItems: "center",
+  alignItems: "flex-start",
   justifyContent: "space-between",
   gap: "12px",
 };
 
+const headerLeftStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px",
+  minWidth: 0,
+};
+
+
 const titleStyle: CSSProperties = {
-  fontSize: "20px",
+  fontSize: "22px",
   fontWeight: 700,
+  margin: 0,
+  letterSpacing: "-0.02em",
+};
+
+const headerMetaRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  gap: "8px",
+};
+
+const headerDateStyle: CSSProperties = {
+  fontSize: "13px",
+  color: "#6B625B",
   margin: 0,
 };
 
-const cardStyle: CSSProperties = {
-  padding: "16px",
-  borderRadius: "12px",
+const headerButtonStyle: CSSProperties = {
+  minHeight: "44px",
+  padding: "0 14px",
+  borderRadius: "999px",
+  border: "1px solid #D9D3CC",
+  background: "linear-gradient(180deg, #FFFFFF 0%, #F2EDE7 100%)",
+  color: "#2E2A27",
+  fontSize: "13px",
+  fontWeight: 600,
+  textDecoration: "none",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  whiteSpace: "nowrap",
+  boxShadow: "0 6px 18px rgba(32, 26, 20, 0.12)",
+};
+
+const totalPillStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "8px",
+  padding: "4px 10px",
+  borderRadius: "999px",
   border: "1px solid #E3DED8",
-  background: "#FFFFFF",
+  background: "rgba(255, 255, 255, 0.9)",
+  boxShadow: "0 4px 12px rgba(32, 26, 20, 0.08)",
+};
+
+const totalPillLabelStyle: CSSProperties = {
+  fontSize: "11px",
+  fontWeight: 600,
+  color: "#6B625B",
+  margin: 0,
+};
+
+const totalPillValueStyle: CSSProperties = {
+  fontSize: "13px",
+  fontWeight: 700,
+  color: "#2E2A27",
+  margin: 0,
+  letterSpacing: "-0.02em",
+  fontVariantNumeric: "tabular-nums",
+};
+
+const cardBaseStyle: CSSProperties = {
+  borderRadius: "24px",
+  border: "1px solid rgba(227, 222, 216, 0.9)",
+  background: "rgba(255, 255, 255, 0.92)",
+  boxShadow: "0 10px 24px rgba(32, 26, 20, 0.08)",
+};
+
+const cardStyle: CSSProperties = {
+  ...cardBaseStyle,
+  padding: "16px",
   display: "flex",
   flexDirection: "column",
+  gap: "12px",
+};
+
+const sectionHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
   gap: "8px",
 };
 
@@ -76,142 +181,103 @@ const sectionTitleStyle: CSSProperties = {
   fontSize: "16px",
   fontWeight: 700,
   margin: 0,
+  letterSpacing: "-0.01em",
 };
 
 const helperTextStyle: CSSProperties = {
-  fontSize: "14px",
-  color: "#5A514B",
+  fontSize: "13px",
+  color: "#6B625B",
   margin: 0,
 };
 
-const summaryGridStyle: CSSProperties = {
+const kpiGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
   gap: "12px",
 };
 
-const summaryLabelStyle: CSSProperties = {
-  fontSize: "12px",
-  color: "#7B736C",
-  margin: 0,
-};
-
-const summaryValueStyle: CSSProperties = {
-  fontSize: "24px",
-  fontWeight: 700,
-  margin: 0,
-  color: "#2E2A27",
-};
-
-const buttonStyle: CSSProperties = {
-  minHeight: "44px",
-  padding: "0 16px",
-  borderRadius: "10px",
-  border: "1px solid #2E2A27",
-  background: "#2E2A27",
-  color: "#FFFFFF",
-  fontSize: "15px",
-  fontWeight: 600,
+const kpiCardLinkStyle: CSSProperties = {
+  ...cardBaseStyle,
+  padding: "16px 18px",
+  minHeight: "120px",
   textDecoration: "none",
-  display: "inline-flex",
+  color: "inherit",
+  display: "flex",
+  flexDirection: "column",
   alignItems: "center",
   justifyContent: "center",
-  width: "100%",
-};
-
-const statusBadgeBaseStyle: CSSProperties = {
-  fontSize: "12px",
-  fontWeight: 600,
-  padding: "2px 8px",
-  borderRadius: "999px",
-  border: "1px solid transparent",
-  whiteSpace: "nowrap",
-};
-
-const statusBadgePositiveStyle: CSSProperties = {
-  ...statusBadgeBaseStyle,
-  background: "#ECFDF3",
-  borderColor: "#ABEFC6",
-  color: "#067647",
-};
-
-const statusBadgeNeutralStyle: CSSProperties = {
-  ...statusBadgeBaseStyle,
-  background: "#F2F4F7",
-  borderColor: "#D0D5DD",
-  color: "#475467",
-};
-
-const statusBadgeErrorStyle: CSSProperties = {
-  ...statusBadgeBaseStyle,
-  background: "#FEE4E2",
-  borderColor: "#FECDCA",
-  color: "#B42318",
-};
-
-const zoneListStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "8px",
-};
-
-const zoneRowStyle: CSSProperties = {
-  minHeight: "44px",
-  padding: "8px 12px",
-  borderRadius: "10px",
-  border: "1px solid #E8E2DB",
-  background: "#FFFFFF",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  textDecoration: "none",
-  color: "#2E2A27",
-};
-
-const zoneNameStyle: CSSProperties = {
-  fontSize: "14px",
-  fontWeight: 600,
-  margin: 0,
-};
-
-const zoneCountStyle: CSSProperties = {
-  fontSize: "16px",
-  fontWeight: 700,
-  margin: 0,
-};
-
-const activityListStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "8px",
-};
-
-const activityRowStyle: CSSProperties = {
-  padding: "12px",
-  borderRadius: "10px",
-  border: "1px solid #E3DED8",
-  borderLeftWidth: "4px",
-  borderLeftStyle: "solid",
-  background: "#FFFFFF",
-  display: "flex",
-  flexDirection: "column",
+  textAlign: "center",
   gap: "6px",
 };
 
-const activityHeaderStyle: CSSProperties = {
+const kpiLabelStyle: CSSProperties = {
+  fontSize: "14px",
+  fontWeight: 600,
+  color: "#6B625B",
+  margin: 0,
+};
+
+const kpiValueStyle: CSSProperties = {
+  fontSize: "44px",
+  fontWeight: 700,
+  margin: 0,
+  lineHeight: 0.95,
+  letterSpacing: "-0.03em",
+  fontVariantNumeric: "tabular-nums",
+};
+
+const listCardStyle: CSSProperties = {
+  ...cardBaseStyle,
+  padding: "4px 0",
+  overflow: "hidden",
+};
+
+const activityRowStyle: CSSProperties = {
+  padding: "12px 16px",
   display: "flex",
-  alignItems: "center",
-  gap: "8px",
+  flexDirection: "column",
+  gap: "6px",
+  borderLeft: "3px solid transparent",
+};
+
+const activityTopRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "auto minmax(0, 1fr) auto",
+  alignItems: "start",
+  gap: "10px",
 };
 
 const activityTitleStyle: CSSProperties = {
-  fontSize: "14px",
+  fontSize: "15px",
+  fontWeight: 600,
+  margin: 0,
+  lineHeight: 1.3,
+  display: "-webkit-box",
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
+};
+
+const activityValueWrapStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  gap: "8px",
+  whiteSpace: "nowrap",
+};
+
+const activityDeltaStyle: CSSProperties = {
+  fontSize: "20px",
   fontWeight: 700,
   margin: 0,
-  color: "#2E2A27",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
+  letterSpacing: "-0.02em",
+  fontVariantNumeric: "tabular-nums",
+};
+
+const activityStockStyle: CSSProperties = {
+  fontSize: "12px",
+  fontWeight: 600,
+  color: "#6B625B",
+  margin: 0,
 };
 
 const activityMetaStyle: CSSProperties = {
@@ -220,10 +286,40 @@ const activityMetaStyle: CSSProperties = {
   margin: 0,
 };
 
+const statusBadgeBaseStyle: CSSProperties = {
+  fontSize: "11px",
+  fontWeight: 600,
+  padding: "4px 10px",
+  borderRadius: "999px",
+  border: "1px solid transparent",
+  whiteSpace: "nowrap",
+};
+
+const statusBadgePositiveStyle: CSSProperties = {
+  ...statusBadgeBaseStyle,
+  background: "#EAF4EC",
+  borderColor: "#CBE7D5",
+  color: "#2F6F46",
+};
+
+const statusBadgeNeutralStyle: CSSProperties = {
+  ...statusBadgeBaseStyle,
+  background: "#F2F1EF",
+  borderColor: "#E0DBD4",
+  color: "#6B625B",
+};
+
+const statusBadgeErrorStyle: CSSProperties = {
+  ...statusBadgeBaseStyle,
+  background: "#F8EDEC",
+  borderColor: "#F1D1CD",
+  color: "#9B2C2C",
+};
+
 const typeBadgeBaseStyle: CSSProperties = {
   fontSize: "11px",
   fontWeight: 700,
-  padding: "2px 6px",
+  padding: "2px 8px",
   borderRadius: "999px",
   border: "1px solid transparent",
   whiteSpace: "nowrap",
@@ -232,37 +328,43 @@ const typeBadgeBaseStyle: CSSProperties = {
 const TYPE_BADGE_STYLES: Record<ActivityType, CSSProperties> = {
   IN: {
     ...typeBadgeBaseStyle,
-    background: "#ECFDF3",
-    borderColor: "#ABEFC6",
-    color: "#067647",
+    background: "#F8F6F2",
+    borderColor: "#E3DED8",
+    color: "#5A514B",
   },
   OUT: {
     ...typeBadgeBaseStyle,
-    background: "#FEE4E2",
-    borderColor: "#FECDCA",
-    color: "#B42318",
+    background: "#F8F6F2",
+    borderColor: "#E3DED8",
+    color: "#5A514B",
   },
   ADJUST: {
     ...typeBadgeBaseStyle,
-    background: "#F2F4F7",
-    borderColor: "#D0D5DD",
-    color: "#475467",
+    background: "#EEF2F6",
+    borderColor: "#D6DEE7",
+    color: "#3F4854",
   },
 };
 
 const TYPE_BORDER_COLORS: Record<ActivityType, string> = {
-  IN: "#16A34A",
-  OUT: "#DC2626",
-  ADJUST: "#64748B",
+  IN: "#EFEAE3",
+  OUT: "#EFEAE3",
+  ADJUST: "#D5DCE6",
 };
 
 const skeletonBlockStyle: CSSProperties = {
-  background: "#E7E3DD",
-  borderRadius: "10px",
+  background: "linear-gradient(120deg, #EAE5DF 0%, #F2EDE7 100%)",
+  borderRadius: "12px",
 };
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const ACTIVITY_LABELS: Record<ActivityType, string> = {
+  IN: "입고",
+  OUT: "출고",
+  ADJUST: "조정",
+};
 
 function pad2(value: number) {
   return String(value).padStart(2, "0");
@@ -341,26 +443,24 @@ function getActorLabel(activity: RecentActivityRow) {
   return "이름 미입력";
 }
 
-function SummarySkeleton() {
-  return (
-    <div style={summaryGridStyle}>
-      {[0, 1, 2].map((item) => (
-        <div key={item} style={{ ...cardStyle, border: "none" }}>
-          <div style={{ ...skeletonBlockStyle, height: "12px", width: "50%" }} />
-          <div style={{ ...skeletonBlockStyle, height: "24px", width: "60%" }} />
-        </div>
-      ))}
-    </div>
-  );
+function formatDelta(delta: number) {
+  if (delta > 0) {
+    return `+${delta}`;
+  }
+  return `${delta}`;
 }
 
-function ZoneSkeleton() {
+function formatNumber(value: number) {
+  return value.toLocaleString("ko-KR");
+}
+
+function KpiSkeleton() {
   return (
-    <div style={zoneListStyle}>
-      {[0, 1, 2].map((item) => (
-        <div key={item} style={{ ...zoneRowStyle, border: "none" }}>
+    <div style={kpiGridStyle}>
+      {[0, 1, 2, 3].map((item) => (
+        <div key={item} style={kpiCardLinkStyle}>
           <div style={{ ...skeletonBlockStyle, height: "14px", width: "40%" }} />
-          <div style={{ ...skeletonBlockStyle, height: "16px", width: "20%" }} />
+          <div style={{ ...skeletonBlockStyle, height: "34px", width: "60%" }} />
         </div>
       ))}
     </div>
@@ -369,14 +469,20 @@ function ZoneSkeleton() {
 
 function ActivitySkeleton() {
   return (
-    <div style={activityListStyle}>
+    <>
       {[0, 1, 2].map((item) => (
-        <div key={item} style={{ ...activityRowStyle, border: "none" }}>
-          <div style={{ ...skeletonBlockStyle, height: "14px", width: "55%" }} />
-          <div style={{ ...skeletonBlockStyle, height: "12px", width: "35%" }} />
+        <div
+          key={item}
+          style={{
+            ...activityRowStyle,
+            borderBottom: "1px solid #EFEAE3",
+          }}
+        >
+          <div style={{ ...skeletonBlockStyle, height: "14px", width: "70%" }} />
+          <div style={{ ...skeletonBlockStyle, height: "12px", width: "40%" }} />
         </div>
       ))}
-    </div>
+    </>
   );
 }
 
@@ -398,6 +504,10 @@ export default function DashboardClient() {
   const [activityState, setActivityState] = useState<DataState>("idle");
   const [activityError, setActivityError] = useState<string | null>(null);
   const [activities, setActivities] = useState<RecentActivityRow[]>([]);
+
+  const [stockByProductId, setStockByProductId] = useState<Map<string, number>>(
+    () => new Map()
+  );
 
   const [fridayState, setFridayState] = useState<DataState>("idle");
   const [fridayError, setFridayError] = useState<string | null>(null);
@@ -519,21 +629,23 @@ export default function DashboardClient() {
 
       if (totalResult.error) {
         console.error("Failed to fetch product count", totalResult.error);
-        setTotalError("총 제품 수를 불러오지 못했어요.");
+        setTotalError("전체 제품 수를 불러오지 못했어요.");
         setTotalState("error");
       } else {
         setTotalCount(totalResult.count ?? 0);
         setTotalState("ready");
       }
 
+      let activityData: RecentActivityRow[] = [];
+
       if (activityResult.error) {
         console.error("Failed to fetch recent activity", activityResult.error);
         setActivityError("최근 활동을 불러오지 못했어요.");
         setActivityState("error");
       } else {
-        setActivities(
-          (activityResult.data as RecentActivityRow[] | null | undefined) ?? []
-        );
+        activityData =
+          (activityResult.data as RecentActivityRow[] | null | undefined) ?? [];
+        setActivities(activityData);
         setActivityState("ready");
       }
 
@@ -550,45 +662,75 @@ export default function DashboardClient() {
         console.error("Failed to fetch zones", zonesResult.error);
         setZoneError("구역 정보를 불러오지 못했어요.");
         setZoneState("error");
-        return;
-      }
+      } else {
+        const zonesData = (zonesResult.data as Zone[] | null | undefined) ?? [];
+        if (zonesData.length === 0) {
+          setZoneCounts([]);
+          setZoneState("ready");
+        } else {
+          const zoneCountResults = await Promise.all(
+            zonesData.map(async (zone) => {
+              const { count, error } = await supabase
+                .from("products")
+                .select("id", { count: "exact", head: true })
+                .eq("active", true)
+                .eq("zone_id", zone.id);
 
-      const zonesData = (zonesResult.data as Zone[] | null | undefined) ?? [];
-      if (zonesData.length === 0) {
-        setZoneCounts([]);
-        setZoneState("ready");
-        return;
-      }
+              if (error) {
+                console.error("Failed to fetch zone count", {
+                  zoneId: zone.id,
+                  error,
+                });
+                return { zone, count: null, hasError: true };
+              }
 
-      const zoneCountResults = await Promise.all(
-        zonesData.map(async (zone) => {
-          const { count, error } = await supabase
-            .from("products")
-            .select("id", { count: "exact", head: true })
-            .eq("active", true)
-            .eq("zone_id", zone.id);
+              return { zone, count: count ?? 0, hasError: false };
+            })
+          );
 
-          if (error) {
-            console.error("Failed to fetch zone count", {
-              zoneId: zone.id,
-              error,
-            });
-            return { zone, count: null, hasError: true };
+          if (cancelled) {
+            return;
           }
 
-          return { zone, count: count ?? 0, hasError: false };
-        })
+          setZoneCounts(zoneCountResults);
+          if (zoneCountResults.some((row) => row.hasError)) {
+            setZoneWarning("일부 구역 집계에 실패했어요.");
+          }
+          setZoneState("ready");
+        }
+      }
+
+      if (activityData.length === 0) {
+        setStockByProductId(new Map());
+        return;
+      }
+
+      const productIds = Array.from(
+        new Set(activityData.map((item) => item.product_id))
       );
+
+      const inventoryResult = await supabase
+        .from("inventory")
+        .select("product_id, stock")
+        .in("product_id", productIds);
 
       if (cancelled) {
         return;
       }
 
-      setZoneCounts(zoneCountResults);
-      if (zoneCountResults.some((row) => row.hasError)) {
-        setZoneWarning("일부 구역 집계에 실패했어요.");
+      if (inventoryResult.error) {
+        console.error("Failed to fetch inventory", inventoryResult.error);
+        setStockByProductId(new Map());
+        return;
       }
-      setZoneState("ready");
+
+      const stockMap = new Map<string, number>();
+      (inventoryResult.data as InventoryRow[] | null | undefined)?.forEach(
+        (row) => {
+          stockMap.set(row.product_id, row.stock);
+        }
+      );
+      setStockByProductId(stockMap);
     };
 
     loadDashboard();
@@ -613,7 +755,32 @@ export default function DashboardClient() {
     return { text: "조정 발생: 없음", style: statusBadgeNeutralStyle };
   })();
 
-  const totalLabel = totalState === "ready" ? totalCount ?? 0 : null;
+  const totalPillValue = useMemo(() => {
+    if (totalState === "ready") {
+      return formatNumber(totalCount ?? 0);
+    }
+    if (totalState === "error") {
+      return "-";
+    }
+    return "...";
+  }, [totalCount, totalState]);
+
+  const zoneKpis = useMemo<ZoneKpi[]>(() => {
+    const map = new Map<string, ZoneCount>();
+    zoneCounts.forEach((row) => {
+      map.set(row.zone.name, row);
+    });
+
+    return ZONE_KPI_LABELS.map((label) => {
+      const row = map.get(label);
+      return {
+        label,
+        count: row?.count ?? 0,
+        hasError: zoneState === "error" || row?.hasError === true,
+      };
+    });
+  }, [zoneCounts, zoneState]);
+
   const fridayLabel = fridayRange.label;
 
   const handleLogout = async () => {
@@ -631,11 +798,11 @@ export default function DashboardClient() {
     return (
       <div style={pageStyle}>
         <div style={containerStyle}>
-          <div style={{ ...cardStyle, gap: "12px" }}>
+          <div style={cardStyle}>
             <p style={helperTextStyle}>
               계정이 비활성화되어 있어 접근할 수 없어요.
             </p>
-            <button type="button" style={buttonStyle} onClick={handleLogout}>
+            <button type="button" style={headerButtonStyle} onClick={handleLogout}>
               로그아웃
             </button>
             {signOutError ? <p style={helperTextStyle}>{signOutError}</p> : null}
@@ -662,119 +829,154 @@ export default function DashboardClient() {
   return (
     <div style={pageStyle}>
       <div style={containerStyle}>
-        <header style={headerStyle}>
-          <h1 style={titleStyle}>대시보드</h1>
+        <header style={headerShellStyle}>
+          <div style={headerRowStyle}>
+            <div style={headerLeftStyle}>
+              <h1 style={titleStyle}>대시보드</h1>
+              <div style={headerMetaRowStyle}>
+                <p style={headerDateStyle}>기준일: {fridayLabel} (금)</p>
+                <span style={adjustBadge.style}>{adjustBadge.text}</span>
+              </div>
+            </div>
+            <Link href="/products" style={headerButtonStyle}>
+              제품목록
+            </Link>
+          </div>
+          {totalState === "error" && totalError ? (
+            <p style={helperTextStyle}>{totalError}</p>
+          ) : null}
+          {fridayState === "error" && fridayError ? (
+            <p style={helperTextStyle}>{fridayError}</p>
+          ) : null}
         </header>
+
         {signOutError ? <p style={helperTextStyle}>{signOutError}</p> : null}
 
         <section style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <h2 style={sectionTitleStyle}>요약</h2>
-          {isAuthLoading ? (
-            <SummarySkeleton />
-          ) : (
-            <div style={summaryGridStyle}>
-              <div style={cardStyle}>
-                <p style={summaryLabelStyle}>총 제품 수(활성)</p>
-                {totalState === "loading" || totalState === "idle" ? (
-                  <div style={{ ...skeletonBlockStyle, height: "24px", width: "60%" }} />
-                ) : totalState === "error" ? (
-                  <p style={helperTextStyle}>{totalError}</p>
-                ) : (
-                  <p style={summaryValueStyle}>
-                    {(totalLabel ?? 0).toLocaleString("ko-KR")}
-                  </p>
-                )}
-              </div>
-              <div style={cardStyle}>
-                <p style={summaryLabelStyle}>기준일: {fridayLabel} (금)</p>
-                <span style={adjustBadge.style}>{adjustBadge.text}</span>
-                {fridayState === "error" && fridayError ? (
-                  <p style={helperTextStyle}>{fridayError}</p>
-                ) : null}
-              </div>
-              <div style={cardStyle}>
-                <p style={summaryLabelStyle}>빠른 이동</p>
-                <Link href="/products" style={buttonStyle}>
-                  제품목록으로 이동
-                </Link>
-              </div>
+          <div style={sectionHeaderStyle}>
+            <h2 style={sectionTitleStyle}>구역별 현황</h2>
+            <div style={totalPillStyle}>
+              <span style={totalPillLabelStyle}>전체 제품</span>
+              <span style={totalPillValueStyle}>{totalPillValue}</span>
             </div>
-          )}
-        </section>
-
-        <section style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <h2 style={sectionTitleStyle}>구역별 제품 수</h2>
+          </div>
           {isAuthLoading || zoneState === "loading" || zoneState === "idle" ? (
-            <ZoneSkeleton />
-          ) : zoneState === "error" ? (
-            <div style={cardStyle}>
-              <p style={helperTextStyle}>{zoneError}</p>
-            </div>
-          ) : zoneCounts.length === 0 ? (
-            <div style={cardStyle}>
-              <p style={helperTextStyle}>구역 정보가 없어요.</p>
-            </div>
+            <KpiSkeleton />
           ) : (
-            <div style={zoneListStyle}>
-              {zoneCounts.map((row) => {
-                const href = `/products?zone=${encodeURIComponent(row.zone.name)}`;
-                const countLabel =
-                  row.count === null ? "-" : row.count.toLocaleString("ko-KR");
+            <div style={kpiGridStyle}>
+              {zoneKpis.map((item) => {
+                const href = `/products?zone=${encodeURIComponent(item.label)}`;
+                const valueLabel = item.hasError
+                  ? "-"
+                  : formatNumber(item.count ?? 0);
+
                 return (
-                  <Link key={row.zone.id} href={href} style={zoneRowStyle}>
-                    <p style={zoneNameStyle}>{row.zone.name}</p>
-                    <p style={zoneCountStyle}>{countLabel}</p>
+                  <Link
+                    key={item.label}
+                    href={href}
+                    style={kpiCardLinkStyle}
+                    className="dashboard-pressable"
+                    aria-label={`${item.label} 제품 목록 보기`}
+                  >
+                    <p style={kpiLabelStyle}>{item.label}</p>
+                    <p style={kpiValueStyle}>{valueLabel}</p>
                   </Link>
                 );
               })}
             </div>
           )}
+          {zoneState === "error" && zoneError ? (
+            <p style={helperTextStyle}>{zoneError}</p>
+          ) : null}
           {zoneWarning ? <p style={helperTextStyle}>{zoneWarning}</p> : null}
         </section>
 
         <section style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <h2 style={sectionTitleStyle}>최근 활동</h2>
-          {isAuthLoading || activityState === "loading" || activityState === "idle" ? (
-            <ActivitySkeleton />
-          ) : activityState === "error" ? (
-            <div style={cardStyle}>
-              <p style={helperTextStyle}>{activityError}</p>
-            </div>
-          ) : activities.length === 0 ? (
-            <div style={cardStyle}>
-              <p style={helperTextStyle}>최근 활동이 없어요.</p>
-            </div>
-          ) : (
-            <div style={activityListStyle}>
-              {activities.map((activity) => {
+          <div style={sectionHeaderStyle}>
+            <h2 style={sectionTitleStyle}>최근 활동</h2>
+            <p style={helperTextStyle}>최대 20건</p>
+          </div>
+          <div style={listCardStyle}>
+            {isAuthLoading || activityState === "loading" || activityState === "idle" ? (
+              <ActivitySkeleton />
+            ) : activityState === "error" ? (
+              <div style={{ ...activityRowStyle, padding: "16px" }}>
+                <p style={helperTextStyle}>{activityError}</p>
+              </div>
+            ) : activities.length === 0 ? (
+              <div style={{ ...activityRowStyle, padding: "16px" }}>
+                <p style={helperTextStyle}>최근 활동이 없어요.</p>
+              </div>
+            ) : (
+              activities.map((activity, index) => {
                 const type = getActivityType(activity);
+                const typeLabel = ACTIVITY_LABELS[type];
                 const timeLabel = formatTimestamp(activity.created_at);
                 const actorLabel = getActorLabel(activity);
+                const deltaLabel = formatDelta(activity.delta);
+                const currentStock = stockByProductId.get(activity.product_id);
+                const stockLabel =
+                  currentStock === undefined
+                    ? "현재 -"
+                    : `현재 ${formatNumber(currentStock)}`;
+                const deltaColor =
+                  activity.delta > 0
+                    ? "#2F6F46"
+                    : activity.delta < 0
+                      ? "#9B2C2C"
+                      : "#5A514B";
+                const isLast = index === activities.length - 1;
+
                 return (
                   <div
                     key={activity.id}
                     style={{
                       ...activityRowStyle,
                       borderLeftColor: TYPE_BORDER_COLORS[type],
+                      borderBottom: isLast ? "none" : "1px solid #EFEAE3",
                     }}
                   >
-                    <div style={activityHeaderStyle}>
-                      <span style={TYPE_BADGE_STYLES[type]}>{type}</span>
-                      <p style={activityTitleStyle}>
-                        <strong>{activity.product_name}</strong>
-                      </p>
+                    <div style={activityTopRowStyle}>
+                      <span style={TYPE_BADGE_STYLES[type]}>{typeLabel}</span>
+                      <p style={activityTitleStyle}>{activity.product_name}</p>
+                      <div style={activityValueWrapStyle}>
+                        <p style={{ ...activityDeltaStyle, color: deltaColor }}>
+                          {deltaLabel}
+                        </p>
+                        <p style={activityStockStyle}>{stockLabel}</p>
+                      </div>
                     </div>
                     <p style={activityMetaStyle}>
                       {actorLabel} · {timeLabel}
                     </p>
                   </div>
                 );
-              })}
-            </div>
-          )}
+              })
+            )}
+          </div>
         </section>
       </div>
+      <style jsx global>{`
+        .dashboard-pressable {
+          transition: background-color 160ms ease, transform 160ms ease;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .dashboard-pressable:hover {
+          background-color: rgba(46, 42, 39, 0.04);
+        }
+
+        .dashboard-pressable:active {
+          background-color: rgba(46, 42, 39, 0.08);
+          transform: translateY(1px);
+        }
+
+        @media (hover: none) {
+          .dashboard-pressable:hover {
+            background-color: transparent;
+          }
+        }
+      `}</style>
     </div>
   );
 }
-

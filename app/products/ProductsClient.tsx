@@ -819,6 +819,13 @@ export default function ProductsPage() {
                     />
                     <div style={menuPanelStyle}>
                       <Link
+                        href="/dashboard"
+                        style={menuItemStyle}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        대시보드
+                      </Link>
+                      <Link
                         href={settingsHref}
                         style={menuItemStyle}
                         onClick={() => setIsMenuOpen(false)}

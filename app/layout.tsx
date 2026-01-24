@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "온누리 재고 관리 시스템",
   description: "온누리 재고 관리 시스템 모바일 재고 조사 웹앱",
+  manifest: "/manifest.json",
   icons: {
     icon: [
       { url: "/favicon.ico" },

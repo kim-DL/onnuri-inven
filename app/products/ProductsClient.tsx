@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CompositionEvent, CSSProperties } from "react";
+import type { CompositionEvent, CSSProperties, FormEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
@@ -169,6 +169,45 @@ const inputStyle: CSSProperties = {
   border: "1px solid #D6D2CC",
   fontSize: "15px",
   background: "#FFFFFF",
+};
+
+const searchFieldStyle: CSSProperties = {
+  position: "relative",
+  display: "flex",
+  alignItems: "center",
+};
+
+const searchInputStyle: CSSProperties = {
+  ...inputStyle,
+  width: "100%",
+  paddingRight: "104px",
+};
+
+const searchButtonRowStyle: CSSProperties = {
+  position: "absolute",
+  right: "6px",
+  display: "flex",
+  alignItems: "center",
+  gap: "4px",
+};
+
+const searchIconButtonStyle: CSSProperties = {
+  width: "44px",
+  height: "44px",
+  borderRadius: "10px",
+  border: "none",
+  background: "transparent",
+  color: "#2E2A27",
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const searchIconStyle: CSSProperties = {
+  width: "18px",
+  height: "18px",
+  display: "block",
 };
 
 const cardStyle: CSSProperties = {
@@ -741,6 +780,23 @@ export default function ProductsPage() {
     router.replace("/login");
   };
 
+  const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const nextQuery = draftQuery.trim();
+    if (nextQuery === committedQuery) {
+      return;
+    }
+    updateSearchParams({ q: nextQuery });
+  };
+
+  const handleClearQuery = () => {
+    if (!draftQuery) {
+      return;
+    }
+    setDraftQuery("");
+    updateSearchParams({ q: "" });
+  };
+
   const escapeCsvValue = (value: string) => {
     if (/[",\n]/.test(value)) {
       return `"${value.replace(/"/g, "\"\"")}"`;
@@ -910,16 +966,61 @@ export default function ProductsPage() {
               })}
             </div>
 
-            <input
-              type="text"
-              value={draftQuery}
-              onChange={(event) => setDraftQuery(event.currentTarget.value)}
-              onCompositionStart={handleCompositionStart}
-              onCompositionEnd={handleCompositionEnd}
-              placeholder="상품명, 제조사 검색"
-              aria-label="상품명 또는 제조사 검색"
-              style={inputStyle}
-            />
+            <form onSubmit={handleSearchSubmit}>
+              <div style={searchFieldStyle}>
+                <input
+                  type="text"
+                  value={draftQuery}
+                  onChange={(event) => setDraftQuery(event.currentTarget.value)}
+                  onCompositionStart={handleCompositionStart}
+                  onCompositionEnd={handleCompositionEnd}
+                  placeholder="상품명, 제조사 검색"
+                  aria-label="상품명 또는 제조사 검색"
+                  style={searchInputStyle}
+                />
+                <div style={searchButtonRowStyle}>
+                  {draftQuery ? (
+                    <button
+                      type="button"
+                      style={searchIconButtonStyle}
+                      aria-label="검색어 지우기"
+                      onClick={handleClearQuery}
+                    >
+                      <svg viewBox="0 0 24 24" style={searchIconStyle}>
+                        <path
+                          d="M6 6l12 12M18 6L6 18"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </button>
+                  ) : null}
+                  <button
+                    type="submit"
+                    style={searchIconButtonStyle}
+                    aria-label="검색"
+                  >
+                    <svg viewBox="0 0 24 24" style={searchIconStyle}>
+                      <circle
+                        cx="11"
+                        cy="11"
+                        r="7"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        fill="none"
+                      />
+                      <path
+                        d="M16.5 16.5L21 21"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </form>
             {expiryWarningError ? (
               <p style={helperTextStyle}>{expiryWarningError}</p>
             ) : null}

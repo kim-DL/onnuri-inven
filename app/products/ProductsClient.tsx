@@ -139,28 +139,38 @@ const menuDividerStyle: CSSProperties = {
 
 const chipRowStyle: CSSProperties = {
   display: "flex",
-  flexWrap: "wrap",
+  flexWrap: "nowrap",
   justifyContent: "center",
-  gap: "8px",
+  gap: "6px",
+  width: "100%",
+  maxWidth: "100%",
 };
 
 const chipBaseStyle: CSSProperties = {
-  minHeight: "44px",
-  padding: "0 12px",
-  borderRadius: "12px",
+  height: "44px",
+  width: "60px",
+  minWidth: "60px",
+  flexShrink: 0,
+  borderRadius: "8px",
   border: "1px solid #D6D2CC",
   background: "transparent",
   color: "#6B625B",
   fontSize: "14px",
   fontWeight: 600,
   cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
 };
 
 const chipActiveStyle: CSSProperties = {
-  background: "rgba(30, 42, 68, 0.08)",
-  color: "#1E2A44",
-  border: "1px solid #D6D2CC",
+  background: "#d3e8f2",
+  color: "#1f2937",
+  border: "1px solid #9fc6da",
 };
+
+const chipClassName =
+  "select-none transition-[transform,box-shadow,background-color,border-color] duration-150 shadow-[0_1px_0_rgba(255,255,255,0.85),0_2px_6px_rgba(0,0,0,0.08)] active:translate-y-[1px] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.15),0_1px_0_rgba(255,255,255,0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9fc6da] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F9F8F6]";
 
 const inputStyle: CSSProperties = {
   minHeight: "44px",
@@ -940,6 +950,7 @@ export default function ProductsPage() {
             <div style={chipRowStyle}>
               <button
                 type="button"
+                className={chipClassName}
                 style={{
                   ...chipBaseStyle,
                   ...(!selectedZone ? chipActiveStyle : null),
@@ -954,6 +965,7 @@ export default function ProductsPage() {
                   <button
                     key={zone}
                     type="button"
+                    className={chipClassName}
                     style={{
                       ...chipBaseStyle,
                       ...(isActive ? chipActiveStyle : null),

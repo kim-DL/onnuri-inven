@@ -144,23 +144,14 @@ const chipRowStyle: CSSProperties = {
   gap: "8px",
 };
 
-const chipBaseStyle: CSSProperties = {
-  minHeight: "44px",
-  padding: "0 12px",
-  borderRadius: "12px",
-  border: "1px solid #D6D2CC",
-  background: "transparent",
-  color: "#6B625B",
-  fontSize: "14px",
-  fontWeight: 600,
-  cursor: "pointer",
-};
+const chipBaseClassName =
+  "inline-flex items-center justify-center h-11 w-20 shrink-0 select-none rounded-lg px-2 text-[14px] font-semibold transition-[transform,box-shadow,background-color,border-color] duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F9F8F6] active:translate-y-[1px] active:shadow-inner";
 
-const chipActiveStyle: CSSProperties = {
-  background: "rgba(30, 42, 68, 0.08)",
-  color: "#1E2A44",
-  border: "1px solid #D6D2CC",
-};
+const chipInactiveClassName =
+  "border border-slate-200 text-slate-700 bg-gradient-to-b from-white to-slate-50 shadow-[0_1px_0_rgba(255,255,255,0.9),0_2px_6px_rgba(0,0,0,0.06)]";
+
+const chipActiveClassName =
+  "border border-emerald-500 text-white bg-gradient-to-b from-emerald-400 to-emerald-500 shadow-[0_4px_10px_rgba(16,185,129,0.25)]";
 
 const inputStyle: CSSProperties = {
   minHeight: "44px",
@@ -940,10 +931,9 @@ export default function ProductsPage() {
             <div style={chipRowStyle}>
               <button
                 type="button"
-                style={{
-                  ...chipBaseStyle,
-                  ...(!selectedZone ? chipActiveStyle : null),
-                }}
+                className={`${chipBaseClassName} ${
+                  !selectedZone ? chipActiveClassName : chipInactiveClassName
+                }`}
                 onClick={() => updateSearchParams({ zone: null })}
               >
                 전체
@@ -954,10 +944,9 @@ export default function ProductsPage() {
                   <button
                     key={zone}
                     type="button"
-                    style={{
-                      ...chipBaseStyle,
-                      ...(isActive ? chipActiveStyle : null),
-                    }}
+                    className={`${chipBaseClassName} ${
+                      isActive ? chipActiveClassName : chipInactiveClassName
+                    }`}
                     onClick={() => handleZoneClick(zone)}
                   >
                     {zone}

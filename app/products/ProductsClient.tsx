@@ -139,19 +139,38 @@ const menuDividerStyle: CSSProperties = {
 
 const chipRowStyle: CSSProperties = {
   display: "flex",
-  flexWrap: "wrap",
-  justifyContent: "center",
+  flexWrap: "nowrap",
+  justifyContent: "flex-start",
   gap: "8px",
+  overflowX: "auto",
+  WebkitOverflowScrolling: "touch",
 };
 
-const chipBaseClassName =
-  "inline-flex items-center justify-center h-11 w-20 shrink-0 select-none rounded-lg px-2 text-[14px] font-semibold transition-[transform,box-shadow,background-color,border-color] duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F9F8F6] active:translate-y-[1px] active:shadow-inner";
+const chipBaseStyle: CSSProperties = {
+  height: "44px",
+  width: "64px",
+  minWidth: "64px",
+  flexShrink: 0,
+  borderRadius: "12px",
+  border: "1px solid #D6D2CC",
+  background: "transparent",
+  color: "#6B625B",
+  fontSize: "14px",
+  fontWeight: 600,
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
 
-const chipInactiveClassName =
-  "border border-slate-200 text-slate-700 bg-gradient-to-b from-white to-slate-50 shadow-[0_1px_0_rgba(255,255,255,0.9),0_2px_6px_rgba(0,0,0,0.06)]";
+const chipActiveStyle: CSSProperties = {
+  background: "#d3e8f2",
+  color: "#1f2937",
+  border: "1px solid #9fc6da",
+};
 
-const chipActiveClassName =
-  "border border-emerald-500 text-white bg-gradient-to-b from-emerald-400 to-emerald-500 shadow-[0_4px_10px_rgba(16,185,129,0.25)]";
+const chipClassName =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9fc6da] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F9F8F6]";
 
 const inputStyle: CSSProperties = {
   minHeight: "44px",
@@ -931,9 +950,11 @@ export default function ProductsPage() {
             <div style={chipRowStyle}>
               <button
                 type="button"
-                className={`${chipBaseClassName} ${
-                  !selectedZone ? chipActiveClassName : chipInactiveClassName
-                }`}
+                className={chipClassName}
+                style={{
+                  ...chipBaseStyle,
+                  ...(!selectedZone ? chipActiveStyle : null),
+                }}
                 onClick={() => updateSearchParams({ zone: null })}
               >
                 전체
@@ -944,9 +965,11 @@ export default function ProductsPage() {
                   <button
                     key={zone}
                     type="button"
-                    className={`${chipBaseClassName} ${
-                      isActive ? chipActiveClassName : chipInactiveClassName
-                    }`}
+                    className={chipClassName}
+                    style={{
+                      ...chipBaseStyle,
+                      ...(isActive ? chipActiveStyle : null),
+                    }}
                     onClick={() => handleZoneClick(zone)}
                   >
                     {zone}

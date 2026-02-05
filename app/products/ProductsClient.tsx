@@ -288,7 +288,7 @@ const stockLabelStyle: CSSProperties = {
 const stockValueStyle: CSSProperties = {
   fontSize: "22px",
   fontWeight: 700,
-  color: "#2E2A27",
+  color: "#005aff",
   margin: 0,
   whiteSpace: "nowrap",
   lineHeight: 1.1,

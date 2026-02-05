@@ -2,7 +2,6 @@
 
 ## Read before coding
 - `docs/SSOT.md` is the single source of truth (SSOT). If anything conflicts, SSOT wins.
-- Follow `docs/TODO.md` for scope and order of work.
 
 ## Non-negotiable rules (do not break)
 1) Stock changes

@@ -506,11 +506,15 @@ export default function ProductsPage() {
   const [draftQuery, setDraftQuery] = useState(query);
   const [isComposing, setIsComposing] = useState(false);
   const isComposingRef = useRef(false);
+  const isEditingRef = useRef(false);
   const pendingUpdatesRef = useRef<{ zone?: string | null; q?: string } | null>(
     null
   );
 
   useEffect(() => {
+    if (isEditingRef.current) {
+      return;
+    }
     setDraftQuery(query);
   }, [query]);
 
@@ -774,6 +778,14 @@ export default function ProductsPage() {
     updateSearchParams({ ...(pendingUpdates ?? {}), q: nextQuery });
   };
 
+  const handleSearchFocus = () => {
+    isEditingRef.current = true;
+  };
+
+  const handleSearchBlur = () => {
+    isEditingRef.current = false;
+  };
+
   const handleZoneClick = (zone: string) => {
     const nextZone = selectedZone === zone ? null : zone;
     updateSearchParams({ zone: nextZone });
@@ -986,6 +998,8 @@ export default function ProductsPage() {
                   onChange={(event) => setDraftQuery(event.currentTarget.value)}
                   onCompositionStart={handleCompositionStart}
                   onCompositionEnd={handleCompositionEnd}
+                  onFocus={handleSearchFocus}
+                  onBlur={handleSearchBlur}
                   placeholder="상품명, 제조사 검색"
                   aria-label="상품명 또는 제조사 검색"
                   style={searchInputStyle}

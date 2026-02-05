@@ -40,21 +40,6 @@ const ZONE_PARAM_MAP = new Map(
   ZONE_KEYWORDS.map((keyword) => [keyword.toLowerCase(), keyword])
 );
 
-const pageStyle: CSSProperties = {
-  minHeight: "100vh",
-  background: "#F9F8F6",
-  padding: "16px",
-  paddingBottom: "96px",
-};
-
-const containerStyle: CSSProperties = {
-  maxWidth: "720px",
-  margin: "0 auto",
-  display: "flex",
-  flexDirection: "column",
-  gap: "12px",
-};
-
 const titleStyle: CSSProperties = {
   fontSize: "20px",
   fontWeight: 700,
@@ -873,8 +858,8 @@ export default function ProductsPage() {
   };
 
   return (
-    <div style={pageStyle}>
-      <div style={containerStyle}>
+    <div className="min-h-screen bg-[#F9F8F6] pt-4 px-2 pb-24">
+      <div className="mx-auto flex max-w-[720px] flex-col gap-2.5">
         <header style={headerBarStyle}>
           <h1 style={titleStyle}>상품 목록</h1>
           {authState !== "blocked" ? (

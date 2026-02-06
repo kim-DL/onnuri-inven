@@ -122,6 +122,45 @@ const menuDividerStyle: CSSProperties = {
   margin: "4px 6px",
 };
 
+const pageContainerStyle: CSSProperties = {
+  minHeight: "100vh",
+  height: "100vh",
+  display: "flex",
+  flexDirection: "column",
+  overflow: "hidden",
+};
+
+const pageInnerStyle: CSSProperties = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  minHeight: 0,
+  padding: "16px 8px 0",
+  gap: "10px",
+};
+
+const scrollAreaStyle: CSSProperties = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  minHeight: 0,
+  overflowY: "auto",
+  gap: "10px",
+  paddingBottom: "96px",
+};
+
+const stickyControlsStyle: CSSProperties = {
+  position: "sticky",
+  top: 0,
+  zIndex: 6,
+  background: "#F9F8F6",
+  paddingTop: "8px",
+  paddingBottom: "10px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px",
+};
+
 const chipRowStyle: CSSProperties = {
   display: "flex",
   flexWrap: "nowrap",
@@ -852,9 +891,9 @@ export default function ProductsPage() {
     setIsMenuOpen(false);
   };
 
-  return (
-    <div className="min-h-screen bg-[#F9F8F6] pt-4 px-2 pb-24">
-      <div className="mx-auto flex max-w-[720px] flex-col gap-2.5">
+    return (
+      <div className="min-h-screen bg-[#F9F8F6]" style={pageContainerStyle}>
+        <div className="mx-auto flex max-w-[720px] flex-col" style={pageInnerStyle}>
         <header style={headerBarStyle}>
           <h1 style={titleStyle}>상품 목록</h1>
           {authState !== "blocked" ? (
@@ -939,198 +978,202 @@ export default function ProductsPage() {
           </div>
         ) : (
           <>
-            <div style={chipRowStyle}>
-              <button
-                type="button"
-                className={chipClassName}
-                style={{
-                  ...chipBaseStyle,
-                  ...(!selectedZone ? chipActiveStyle : null),
-                }}
-                onClick={() => updateSearchParams({ zone: null })}
-              >
-                전체
-              </button>
-              {ZONE_KEYWORDS.map((zone) => {
-                const isActive = selectedZone === zone;
-                return (
+            <div style={scrollAreaStyle}>
+              <div style={stickyControlsStyle}>
+                <div style={chipRowStyle}>
                   <button
-                    key={zone}
                     type="button"
                     className={chipClassName}
                     style={{
                       ...chipBaseStyle,
-                      ...(isActive ? chipActiveStyle : null),
+                      ...(!selectedZone ? chipActiveStyle : null),
                     }}
-                    onClick={() => handleZoneClick(zone)}
+                    onClick={() => updateSearchParams({ zone: null })}
                   >
-                    {zone}
+                    전체
                   </button>
-                );
-              })}
-            </div>
-
-            <form onSubmit={handleSearchSubmit}>
-              <div style={searchFieldStyle}>
-                <input
-                  type="text"
-                  value={resolvedDraftQuery}
-                  onChange={(event) => setDraftQuery(event.currentTarget.value)}
-                  onCompositionStart={handleCompositionStart}
-                  onCompositionEnd={handleCompositionEnd}
-                  onFocus={handleSearchFocus}
-                  onBlur={handleSearchBlur}
-                  placeholder="상품명, 제조사 검색"
-                  aria-label="상품명 또는 제조사 검색"
-                  style={searchInputStyle}
-                />
-                <div style={searchButtonRowStyle}>
-                  {resolvedDraftQuery ? (
-                    <button
-                      type="button"
-                      style={searchIconButtonStyle}
-                      aria-label="검색어 지우기"
-                      onClick={handleClearQuery}
-                    >
-                      <svg viewBox="0 0 24 24" style={searchIconStyle}>
-                        <path
-                          d="M6 6l12 12M18 6L6 18"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </button>
-                  ) : null}
-                  <button
-                    type="submit"
-                    style={searchIconButtonStyle}
-                    aria-label="검색"
-                  >
-                    <svg viewBox="0 0 24 24" style={searchIconStyle}>
-                      <circle
-                        cx="11"
-                        cy="11"
-                        r="7"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        fill="none"
-                      />
-                      <path
-                        d="M16.5 16.5L21 21"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </button>
+                  {ZONE_KEYWORDS.map((zone) => {
+                    const isActive = selectedZone === zone;
+                    return (
+                      <button
+                        key={zone}
+                        type="button"
+                        className={chipClassName}
+                        style={{
+                          ...chipBaseStyle,
+                          ...(isActive ? chipActiveStyle : null),
+                        }}
+                        onClick={() => handleZoneClick(zone)}
+                      >
+                        {zone}
+                      </button>
+                    );
+                  })}
                 </div>
-              </div>
-            </form>
-            {expiryWarningError ? (
-              <p style={helperTextStyle}>{expiryWarningError}</p>
-            ) : null}
 
-            {isLoading ? (
-              <SkeletonList />
-            ) : hasError ? (
-              <div style={cardStyle}>
-                <p style={helperTextStyle}>
-                  {errorMessage ?? "목록을 불러오지 못했어요."}
-                </p>
+                <form onSubmit={handleSearchSubmit}>
+                  <div style={searchFieldStyle}>
+                    <input
+                      type="text"
+                      value={resolvedDraftQuery}
+                      onChange={(event) => setDraftQuery(event.currentTarget.value)}
+                      onCompositionStart={handleCompositionStart}
+                      onCompositionEnd={handleCompositionEnd}
+                      onFocus={handleSearchFocus}
+                      onBlur={handleSearchBlur}
+                      placeholder="상품명, 제조사 검색"
+                      aria-label="상품명 또는 제조사 검색"
+                      style={searchInputStyle}
+                    />
+                    <div style={searchButtonRowStyle}>
+                      {resolvedDraftQuery ? (
+                        <button
+                          type="button"
+                          style={searchIconButtonStyle}
+                          aria-label="검색어 지우기"
+                          onClick={handleClearQuery}
+                        >
+                          <svg viewBox="0 0 24 24" style={searchIconStyle}>
+                            <path
+                              d="M6 6l12 12M18 6L6 18"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </button>
+                      ) : null}
+                      <button
+                        type="submit"
+                        style={searchIconButtonStyle}
+                        aria-label="검색"
+                      >
+                        <svg viewBox="0 0 24 24" style={searchIconStyle}>
+                          <circle
+                            cx="11"
+                            cy="11"
+                            r="7"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            fill="none"
+                          />
+                          <path
+                            d="M16.5 16.5L21 21"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </form>
+                {expiryWarningError ? (
+                  <p style={helperTextStyle}>{expiryWarningError}</p>
+                ) : null}
               </div>
-            ) : filteredProducts.length === 0 ? (
-              <div style={cardStyle}>
-                <p style={helperTextStyle}>조건에 맞는 상품이 없어요.</p>
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                {filteredProducts.map((product) => {
-                  const zoneName = product.zone_id
-                    ? zoneNameById.get(product.zone_id)
-                    : null;
-                  const manufacturer =
-                    product.manufacturer?.trim() || "제조사 미입력";
-                  const stock = stockByProductId.get(product.id) ?? 0;
-                  const expiryDate = product.expiry_date?.trim() ?? "";
-                  const metaParts = [zoneName ?? "구역 미지정", manufacturer];
-                  const unit = product.unit?.trim() ?? "";
-                  if (unit) {
-                    metaParts.push(unit);
-                  }
-                  const metaLeft = metaParts.join(" · ");
-                  const daysLeft = expiryDate ? getDaysLeft(expiryDate) : null;
-                  let expiryBadge: { text: string; style: CSSProperties } | null =
-                    null;
-                  if (daysLeft !== null) {
-                    if (daysLeft < 0) {
-                      expiryBadge = { text: "만료", style: badgeExpiredStyle };
-                    } else if (daysLeft <= expiryWarningDays) {
-                      expiryBadge = {
-                        text: `임박 D-${daysLeft}`,
-                        style: badgeWarningStyle,
-                      };
+
+              {isLoading ? (
+                <SkeletonList />
+              ) : hasError ? (
+                <div style={cardStyle}>
+                  <p style={helperTextStyle}>
+                    {errorMessage ?? "목록을 불러오지 못했어요."}
+                  </p>
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div style={cardStyle}>
+                  <p style={helperTextStyle}>조건에 맞는 상품이 없어요.</p>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+                  {filteredProducts.map((product) => {
+                    const zoneName = product.zone_id
+                      ? zoneNameById.get(product.zone_id)
+                      : null;
+                    const manufacturer =
+                      product.manufacturer?.trim() || "제조사 미입력";
+                    const stock = stockByProductId.get(product.id) ?? 0;
+                    const expiryDate = product.expiry_date?.trim() ?? "";
+                    const metaParts = [zoneName ?? "구역 미지정", manufacturer];
+                    const unit = product.unit?.trim() ?? "";
+                    if (unit) {
+                      metaParts.push(unit);
                     }
-                  }
-                  const photoRef = product.photo_url?.trim() ?? "";
-                  const photoSrc = photoRef ? resolvePhotoUrl(photoRef) : "";
-                  const hasPhoto = photoSrc.length > 0;
-                  const detailHref = `/products/${product.id}${detailQuerySuffix}`;
-                  return (
-                    <Link
-                      key={product.id}
-                      href={detailHref}
-                      style={{
-                        display: "block",
-                        color: "inherit",
-                        textDecoration: "none",
-                      }}
-                    >
-                      <div style={cardStyle}>
-                        <div style={cardContentStyle}>
-                          <div style={thumbnailStyle}>
-                            <span style={thumbnailPlaceholderStyle}>사진</span>
-                            {hasPhoto ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={photoSrc}
-                                alt={`${product.name} 사진`}
-                                style={thumbnailImageStyle}
-                                loading="lazy"
-                                onError={(event) => {
-                                  event.currentTarget.style.display = "none";
-                                }}
-                              />
-                            ) : null}
-                          </div>
-                          <div style={cardBodyStyle}>
-                            <div style={cardRowPrimaryStyle}>
-                              <p style={cardTitleStyle}>{product.name}</p>
-                            <div style={rightColumnStyle}>
-                              <div style={stockBlockStyle}>
-                                <p style={stockLabelStyle}>재고</p>
-                                <p style={stockValueStyle}>{stock}</p>
+                    const metaLeft = metaParts.join(" · ");
+                    const daysLeft = expiryDate ? getDaysLeft(expiryDate) : null;
+                    let expiryBadge: { text: string; style: CSSProperties } | null =
+                      null;
+                    if (daysLeft !== null) {
+                      if (daysLeft < 0) {
+                        expiryBadge = { text: "만료", style: badgeExpiredStyle };
+                      } else if (daysLeft <= expiryWarningDays) {
+                        expiryBadge = {
+                          text: `임박 D-${daysLeft}`,
+                          style: badgeWarningStyle,
+                        };
+                      }
+                    }
+                    const photoRef = product.photo_url?.trim() ?? "";
+                    const photoSrc = photoRef ? resolvePhotoUrl(photoRef) : "";
+                    const hasPhoto = photoSrc.length > 0;
+                    const detailHref = `/products/${product.id}${detailQuerySuffix}`;
+                    return (
+                      <Link
+                        key={product.id}
+                        href={detailHref}
+                        style={{
+                          display: "block",
+                          color: "inherit",
+                          textDecoration: "none",
+                        }}
+                      >
+                        <div style={cardStyle}>
+                          <div style={cardContentStyle}>
+                            <div style={thumbnailStyle}>
+                              <span style={thumbnailPlaceholderStyle}>사진</span>
+                              {hasPhoto ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={photoSrc}
+                                  alt={`${product.name} 사진`}
+                                  style={thumbnailImageStyle}
+                                  loading="lazy"
+                                  onError={(event) => {
+                                    event.currentTarget.style.display = "none";
+                                  }}
+                                />
+                              ) : null}
+                            </div>
+                            <div style={cardBodyStyle}>
+                              <div style={cardRowPrimaryStyle}>
+                                <p style={cardTitleStyle}>{product.name}</p>
+                                <div style={rightColumnStyle}>
+                                  <div style={stockBlockStyle}>
+                                    <p style={stockLabelStyle}>재고</p>
+                                    <p style={stockValueStyle}>{stock}</p>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            </div>
-                            <div style={cardRowSecondaryStyle}>
-                              <p style={cardMetaStyle}>{metaLeft}</p>
-                              <div style={rightColumnStyle}>
-                                {expiryBadge ? (
-                                  <span style={expiryBadge.style}>
-                                    {expiryBadge.text}
-                                  </span>
-                                ) : null}
+                              <div style={cardRowSecondaryStyle}>
+                                <p style={cardMetaStyle}>{metaLeft}</p>
+                                <div style={rightColumnStyle}>
+                                  {expiryBadge ? (
+                                    <span style={expiryBadge.style}>
+                                      {expiryBadge.text}
+                                    </span>
+                                  ) : null}
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             {authState === "authed" ? (
               <Link
                 href="/products/new"

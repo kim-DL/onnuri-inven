@@ -154,8 +154,8 @@ const stickyControlsStyle: CSSProperties = {
   top: 0,
   zIndex: 6,
   background: "#F9F8F6",
-  paddingTop: "8px",
-  paddingBottom: "10px",
+  paddingTop: "1px",
+  paddingBottom: "0",
   display: "flex",
   flexDirection: "column",
   gap: "8px",
@@ -891,9 +891,9 @@ export default function ProductsPage() {
     setIsMenuOpen(false);
   };
 
-    return (
-      <div className="min-h-screen bg-[#F9F8F6]" style={pageContainerStyle}>
-        <div className="mx-auto flex max-w-[720px] flex-col" style={pageInnerStyle}>
+  return (
+    <div className="min-h-screen bg-[#F9F8F6]" style={pageContainerStyle}>
+      <div className="mx-auto flex max-w-[720px] flex-col" style={pageInnerStyle}>
         <header style={headerBarStyle}>
           <h1 style={titleStyle}>상품 목록</h1>
           {authState !== "blocked" ? (

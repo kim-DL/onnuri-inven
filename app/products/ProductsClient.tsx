@@ -489,19 +489,12 @@ export default function ProductsPage() {
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [draftQuery, setDraftQuery] = useState(query);
+  const [isEditing, setIsEditing] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
   const isComposingRef = useRef(false);
-  const isEditingRef = useRef(false);
   const pendingUpdatesRef = useRef<{ zone?: string | null; q?: string } | null>(
     null
   );
-
-  useEffect(() => {
-    if (isEditingRef.current) {
-      return;
-    }
-    setDraftQuery(query);
-  }, [query]);
 
   useEffect(() => {
     let cancelled = false;
@@ -646,6 +639,7 @@ export default function ProductsPage() {
     () => parseSearchTokens(committedQuery),
     [committedQuery]
   );
+  const resolvedDraftQuery = isEditing ? draftQuery : query;
   const shouldApplyZone = committedQuery.length === 0;
   const activeZone = shouldApplyZone ? selectedZone : null;
 
@@ -724,7 +718,7 @@ export default function ProductsPage() {
   );
 
   useEffect(() => {
-    if (isComposing) {
+    if (isComposing || !isEditing) {
       return;
     }
 
@@ -738,7 +732,7 @@ export default function ProductsPage() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [committedQuery, draftQuery, isComposing, updateSearchParams]);
+  }, [committedQuery, draftQuery, isComposing, isEditing, updateSearchParams]);
 
   const handleCompositionStart = () => {
     isComposingRef.current = true;
@@ -764,11 +758,12 @@ export default function ProductsPage() {
   };
 
   const handleSearchFocus = () => {
-    isEditingRef.current = true;
+    setIsEditing(true);
+    setDraftQuery(query);
   };
 
   const handleSearchBlur = () => {
-    isEditingRef.current = false;
+    setIsEditing(false);
   };
 
   const handleZoneClick = (zone: string) => {
@@ -789,7 +784,7 @@ export default function ProductsPage() {
 
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const nextQuery = draftQuery.trim();
+    const nextQuery = resolvedDraftQuery.trim();
     if (nextQuery === committedQuery) {
       return;
     }
@@ -797,7 +792,7 @@ export default function ProductsPage() {
   };
 
   const handleClearQuery = () => {
-    if (!draftQuery) {
+    if (!resolvedDraftQuery) {
       return;
     }
     setDraftQuery("");
@@ -979,7 +974,7 @@ export default function ProductsPage() {
               <div style={searchFieldStyle}>
                 <input
                   type="text"
-                  value={draftQuery}
+                  value={resolvedDraftQuery}
                   onChange={(event) => setDraftQuery(event.currentTarget.value)}
                   onCompositionStart={handleCompositionStart}
                   onCompositionEnd={handleCompositionEnd}
@@ -990,7 +985,7 @@ export default function ProductsPage() {
                   style={searchInputStyle}
                 />
                 <div style={searchButtonRowStyle}>
-                  {draftQuery ? (
+                  {resolvedDraftQuery ? (
                     <button
                       type="button"
                       style={searchIconButtonStyle}

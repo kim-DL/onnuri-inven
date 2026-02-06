@@ -328,6 +328,7 @@ export default function ArchivedProductsPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [draftQuery, setDraftQuery] = useState(query);
+  const [isEditing, setIsEditing] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
   const isComposingRef = useRef(false);
   const pendingUpdatesRef = useRef<{ zone?: string | null; q?: string } | null>(
@@ -342,10 +343,6 @@ export default function ArchivedProductsPage() {
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  useEffect(() => {
-    setDraftQuery(query);
-  }, [query]);
 
   useEffect(() => {
     let cancelled = false;
@@ -487,6 +484,7 @@ export default function ArchivedProductsPage() {
     () => parseSearchTokens(committedQuery),
     [committedQuery]
   );
+  const resolvedDraftQuery = isEditing ? draftQuery : query;
   const shouldApplyZone = committedQuery.length === 0;
   const activeZone = shouldApplyZone ? selectedZone : null;
 
@@ -553,7 +551,7 @@ export default function ArchivedProductsPage() {
   );
 
   useEffect(() => {
-    if (isComposing) {
+    if (isComposing || !isEditing) {
       return;
     }
 
@@ -567,7 +565,7 @@ export default function ArchivedProductsPage() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [committedQuery, draftQuery, isComposing, updateSearchParams]);
+  }, [committedQuery, draftQuery, isComposing, isEditing, updateSearchParams]);
 
   const handleCompositionStart = () => {
     isComposingRef.current = true;
@@ -590,6 +588,15 @@ export default function ArchivedProductsPage() {
     }
 
     updateSearchParams({ ...(pendingUpdates ?? {}), q: nextQuery });
+  };
+
+  const handleSearchFocus = () => {
+    setIsEditing(true);
+    setDraftQuery(query);
+  };
+
+  const handleSearchBlur = () => {
+    setIsEditing(false);
   };
 
   const handleZoneClick = (zone: string) => {
@@ -805,10 +812,12 @@ export default function ArchivedProductsPage() {
 
             <input
               type="text"
-              value={draftQuery}
+              value={resolvedDraftQuery}
               onChange={(event) => setDraftQuery(event.currentTarget.value)}
               onCompositionStart={handleCompositionStart}
               onCompositionEnd={handleCompositionEnd}
+              onFocus={handleSearchFocus}
+              onBlur={handleSearchBlur}
               placeholder="상품명, 제조사 검색"
               aria-label="상품명 또는 제조사 검색"
               style={inputStyle}

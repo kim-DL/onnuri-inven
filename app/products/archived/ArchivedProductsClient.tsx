@@ -695,60 +695,29 @@ export default function ArchivedProductsPage() {
     setIsDeleting(true);
     setDeleteError(null);
 
-    const { data: sessionData, error: sessionError } =
-      await supabase.auth.getSession();
-    const accessToken = sessionData.session?.access_token;
+    const { error } = await supabase.rpc("delete_product", {
+      p_product_id: deleteTarget.id,
+      p_confirm_name: deleteConfirmName.trim(),
+    });
 
-    if (sessionError || !accessToken) {
-      setDeleteError("세션이 만료되었어요. 다시 로그인해 주세요.");
-      setIsDeleting(false);
-      return;
-    }
-
-    let response: Response;
-    try {
-      response = await fetch("/api/admin/products/delete", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          product_id: deleteTarget.id,
-          confirm_name: deleteConfirmName.trim(),
-        }),
+    if (error) {
+      console.error("Failed to delete product", {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
       });
-    } catch (error) {
-      console.error("Failed to delete product", error);
-      setDeleteError("삭제에 실패했어요.");
-      setIsDeleting(false);
-      return;
-    }
-
-    let payload: { ok?: boolean; error?: string } | null = null;
-    try {
-      payload = (await response.json()) as { ok?: boolean; error?: string };
-    } catch (error) {
-      console.error("Failed to parse delete response", error);
-    }
-
-    if (!response.ok || !payload?.ok) {
-      const errorCode = payload?.error ?? "";
-      if (response.status === 401 || errorCode === "unauthorized") {
+      const message = error?.message?.toLowerCase() ?? "";
+      if (message.includes("not authenticated")) {
         setDeleteError("세션이 만료되었어요. 다시 로그인해 주세요.");
-      } else if (response.status === 403 || errorCode === "forbidden") {
+      } else if (message.includes("inactive user")) {
+        setDeleteError("권한이 없어요.");
+      } else if (message.includes("admin only")) {
         setDeleteError("관리자만 삭제할 수 있어요.");
-      } else if (errorCode === "name_mismatch") {
+      } else if (message.includes("name mismatch")) {
         setDeleteError("상품명이 일치하지 않아요.");
-      } else if (errorCode === "not_archived") {
+      } else if (message.includes("not archived")) {
         setDeleteError("비활성화된 상품만 삭제할 수 있어요.");
-      } else if (errorCode === "product_not_found") {
-        setDeleteError("상품을 찾을 수 없어요.");
-      } else if (
-        errorCode === "invalid_photo_path" ||
-        errorCode === "storage_delete_failed"
-      ) {
-        setDeleteError("이미지 삭제에 실패했어요.");
       } else {
         setDeleteError("삭제에 실패했어요.");
       }

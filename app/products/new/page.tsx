@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, CSSProperties, FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
 import { resizeImageForUpload } from "@/lib/resizeImageForUpload";
@@ -749,6 +750,11 @@ export default function NewProductPage() {
         ) : (
           <>
             <header style={headerStyle}>
+              <Link href="/products" legacyBehavior>
+                <a className="productsBackLink" aria-label="제품 목록으로 돌아가기">
+                  돌아가기
+                </a>
+              </Link>
               <h1 style={titleStyle}>상품 등록</h1>
             </header>
 

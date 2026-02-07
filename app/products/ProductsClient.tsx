@@ -413,26 +413,6 @@ const buttonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
-const floatingAddButtonStyle: CSSProperties = {
-  position: "fixed",
-  right: "16px",
-  bottom: "16px",
-  width: "48px",
-  height: "48px",
-  borderRadius: "12px",
-  background: "transparent",
-  color: "#1E2A44",
-  border: "1px solid #1E2A44",
-  fontSize: "26px",
-  fontWeight: 700,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  textDecoration: "none",
-  boxShadow: "0 2px 10px rgba(30, 42, 68, 0.12)",
-  zIndex: 10,
-};
-
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function getDaysLeft(dateValue: string) {
@@ -1175,12 +1155,26 @@ export default function ProductsPage() {
               )}
             </div>
             {authState === "authed" ? (
-              <Link
-                href="/products/new"
-                style={floatingAddButtonStyle}
-                aria-label="제품 추가"
-              >
-                +
+              <Link href="/products/new" legacyBehavior>
+                <a className="fabAddProduct" aria-label="제품 추가">
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="26"
+                    height="26"
+                    aria-hidden="true"
+                    focusable="false"
+                    className="fabAddProduct__icon"
+                  >
+                    <path
+                      d="M12 5v14M5 12h14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </a>
               </Link>
             ) : null}
           </>

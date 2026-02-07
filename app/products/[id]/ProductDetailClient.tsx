@@ -19,6 +19,7 @@ type Product = {
   origin_country: string | null;
   expiry_date: string | null;
   photo_url: string | null;
+  memo: string | null;
 };
 
 type Zone = {
@@ -60,6 +61,10 @@ type EditFormState = {
 };
 
 type EditFormErrors = Partial<Record<keyof EditFormState, string>>;
+
+const PRODUCT_SELECT_BASE =
+  "id, name, manufacturer, zone_id, unit, spec, origin_country, expiry_date, photo_url";
+const PRODUCT_SELECT_WITH_MEMO = `${PRODUCT_SELECT_BASE}, memo`;
 
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
@@ -210,10 +215,59 @@ const valueStyle: CSSProperties = {
 };
 
 const stockValueStyle: CSSProperties = {
-  fontSize: "28px",
+  fontSize: "34px",
   fontWeight: 700,
-  color: "#2E2A27",
+  color: "#005aff",
   margin: 0,
+  lineHeight: 1.05,
+};
+
+const memoChipHitAreaStyle: CSSProperties = {
+  minHeight: "44px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const memoChipButtonStyle: CSSProperties = {
+  borderRadius: "999px",
+  border: "1px solid #D6D2CC",
+  minHeight: "30px",
+  padding: "0 10px",
+  background: "transparent",
+  color: "#554D47",
+  fontSize: "12px",
+  fontWeight: 600,
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
+  maxWidth: "220px",
+};
+
+const memoChipEmptyStyle: CSSProperties = {
+  borderColor: "#D6D2CC",
+  background: "#FFFFFF",
+  color: "#6A625C",
+};
+
+const memoChipFilledStyle: CSSProperties = {
+  borderColor: "#CFE2FF",
+  background: "#EEF4FF",
+  color: "#25436A",
+};
+
+const memoChipTextStyle: CSSProperties = {
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  maxWidth: "160px",
+};
+
+const memoChipDotStyle: CSSProperties = {
+  fontSize: "10px",
+  color: "#3C6DB4",
+  lineHeight: 1,
 };
 
 const badgeBaseStyle: CSSProperties = {
@@ -487,6 +541,84 @@ const modalDangerStyle: CSSProperties = {
   background: "#B42318",
 };
 
+const sheetOverlayStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(46, 42, 39, 0.35)",
+  display: "flex",
+  alignItems: "flex-end",
+  justifyContent: "center",
+  zIndex: 55,
+};
+
+const sheetPanelStyle: CSSProperties = {
+  width: "100%",
+  maxWidth: "720px",
+  borderRadius: "16px 16px 0 0",
+  borderTop: "1px solid #E3DED8",
+  borderLeft: "1px solid #E3DED8",
+  borderRight: "1px solid #E3DED8",
+  background: "#FFFFFF",
+  padding: "16px",
+  paddingBottom: "max(16px, env(safe-area-inset-bottom))",
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
+  maxHeight: "85vh",
+};
+
+const sheetHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "8px",
+};
+
+const sheetCloseButtonStyle: CSSProperties = {
+  minHeight: "44px",
+  minWidth: "44px",
+  borderRadius: "10px",
+  border: "1px solid #D6D2CC",
+  background: "#FFFFFF",
+  color: "#2E2A27",
+  fontSize: "14px",
+  fontWeight: 600,
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+};
+
+const sheetBodyStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px",
+  minHeight: 0,
+  overflowY: "auto",
+};
+
+const sheetTextareaStyle: CSSProperties = {
+  minHeight: "140px",
+  maxHeight: "44vh",
+  padding: "12px",
+  borderRadius: "10px",
+  border: "1px solid #D6D2CC",
+  fontSize: "15px",
+  background: "#FFFFFF",
+  resize: "vertical",
+};
+
+const sheetFooterStyle: CSSProperties = {
+  borderTop: "1px solid #E8E2DB",
+  paddingTop: "12px",
+};
+
+const sheetSaveButtonStyle: CSSProperties = {
+  ...buttonStyle,
+  width: "100%",
+};
+
 function SkeletonDetail() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -698,6 +830,18 @@ function getPhotoErrorMessage(
   return fallback;
 }
 
+function isMissingMemoColumnError(error: {
+  message?: string | null;
+  details?: string | null;
+  hint?: string | null;
+  code?: string | null;
+} | null | undefined) {
+  const combined = `${error?.message ?? ""} ${error?.details ?? ""} ${
+    error?.hint ?? ""
+  }`.toLowerCase();
+  return error?.code === "42703" && combined.includes("memo");
+}
+
 export default function ProductDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -756,6 +900,11 @@ export default function ProductDetailPage() {
     string | null
   >(null);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [isMemoSheetOpen, setIsMemoSheetOpen] = useState(false);
+  const [memoDraft, setMemoDraft] = useState("");
+  const [memoError, setMemoError] = useState<string | null>(null);
+  const [isMemoSaving, setIsMemoSaving] = useState(false);
+  const [isMemoColumnAvailable, setIsMemoColumnAvailable] = useState(true);
 
   const queryString = searchParams.toString();
   const backHref = queryString ? `/products?${queryString}` : "/products";
@@ -873,6 +1022,82 @@ export default function ProductDetailPage() {
     setArchiveValidationError(null);
   };
 
+  const openMemoSheet = () => {
+    if (!product) {
+      return;
+    }
+    setMemoDraft(product.memo ?? "");
+    setMemoError(null);
+    setIsMemoSheetOpen(true);
+  };
+
+  const closeMemoSheet = () => {
+    if (isMemoSaving) {
+      return;
+    }
+
+    const currentMemo = product?.memo ?? "";
+    if (memoDraft !== currentMemo) {
+      const shouldClose = window.confirm("변경 사항을 저장하지 않고 닫을까요?");
+      if (!shouldClose) {
+        return;
+      }
+    }
+
+    setIsMemoSheetOpen(false);
+    setMemoError(null);
+  };
+
+  const handleMemoSave = async () => {
+    if (!hasValidId || !productId) {
+      setMemoError("메모 저장에 실패했어요.");
+      return;
+    }
+    if (!isMemoColumnAvailable) {
+      setMemoError(
+        "DB에 memo 컬럼이 없어 저장할 수 없어요. Supabase SQL Editor에서 패치를 먼저 적용해 주세요."
+      );
+      return;
+    }
+
+    setMemoError(null);
+    setIsMemoSaving(true);
+
+    const nextMemo = memoDraft.trim();
+    const memoPayload = nextMemo.length > 0 ? nextMemo : null;
+
+    const { error } = await supabase
+      .from("products")
+      .update({ memo: memoPayload })
+      .eq("id", productId)
+      .eq("active", true);
+
+    if (error) {
+      console.error("Failed to save memo", {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+      });
+      const message = error?.message?.toLowerCase() ?? "";
+      if (message.includes("not authenticated")) {
+        setMemoError("세션이 만료되었어요. 다시 로그인해 주세요.");
+      } else if (message.includes("inactive user")) {
+        setMemoError("권한이 없어요.");
+      } else {
+        setMemoError("메모 저장에 실패했어요.");
+      }
+      setIsMemoSaving(false);
+      return;
+    }
+
+    setProduct((prev) => (prev ? { ...prev, memo: memoPayload } : prev));
+    setMemoDraft(memoPayload ?? "");
+    setIsMemoSaving(false);
+    setIsMemoSheetOpen(false);
+    setMemoError(null);
+  };
+
   const refreshInventoryAndLogs = async (targetId: string) => {
     const [inventoryResult, logsResult] = await Promise.all([
       supabase
@@ -979,11 +1204,9 @@ export default function ProductDetailPage() {
       setErrorMessage(null);
       setNotFound(false);
 
-      const productResult = await supabase
+      const productWithMemoResult = await supabase
         .from("products")
-        .select(
-          "id, name, manufacturer, zone_id, unit, spec, origin_country, expiry_date, photo_url"
-        )
+        .select(PRODUCT_SELECT_WITH_MEMO)
         .eq("id", productId)
         .eq("active", true)
         .maybeSingle();
@@ -992,14 +1215,48 @@ export default function ProductDetailPage() {
         return;
       }
 
-      if (productResult.error) {
-        console.error("Failed to fetch product", productResult.error);
-        setErrorMessage("상품 정보를 불러오지 못했어요.");
-        setDataState("error");
-        return;
+      let productData: Product | null = null;
+      if (productWithMemoResult.error) {
+        if (isMissingMemoColumnError(productWithMemoResult.error)) {
+          console.warn(
+            "products.memo column is missing. Falling back to legacy product query.",
+            productWithMemoResult.error
+          );
+          setIsMemoColumnAvailable(false);
+
+          const legacyProductResult = await supabase
+            .from("products")
+            .select(PRODUCT_SELECT_BASE)
+            .eq("id", productId)
+            .eq("active", true)
+            .maybeSingle();
+
+          if (cancelled) {
+            return;
+          }
+
+          if (legacyProductResult.error) {
+            console.error("Failed to fetch product", legacyProductResult.error);
+            setErrorMessage("상품 정보를 불러오지 못했어요.");
+            setDataState("error");
+            return;
+          }
+
+          productData = legacyProductResult.data
+            ? { ...legacyProductResult.data, memo: null }
+            : null;
+        } else {
+          console.error("Failed to fetch product", productWithMemoResult.error);
+          setErrorMessage("상품 정보를 불러오지 못했어요.");
+          setDataState("error");
+          return;
+        }
+      } else {
+        setIsMemoColumnAvailable(true);
+        productData = productWithMemoResult.data;
       }
 
-      if (!productResult.data) {
+      if (!productData) {
         setNotFound(true);
         setProduct(null);
         setZoneName(null);
@@ -1008,8 +1265,6 @@ export default function ProductDetailPage() {
         setDataState("ready");
         return;
       }
-
-      const productData = productResult.data;
       const inventoryPromise = supabase
         .from("inventory")
         .select("product_id, stock")
@@ -1116,6 +1371,14 @@ export default function ProductDetailPage() {
   const photoRef = product?.photo_url?.trim() ?? "";
   const photoSrc = photoRef ? resolvePhotoUrl(photoRef) : "";
   const hasPhoto = photoSrc.length > 0 && photoErrorSrc !== photoSrc;
+  const memoText = (product?.memo ?? "").trim();
+  const hasMemo = memoText.length > 0;
+  const normalizedMemoPreview = memoText.replace(/\s+/g, " ");
+  const memoPreviewText = hasMemo
+    ? normalizedMemoPreview.length > 16
+      ? `${normalizedMemoPreview.slice(0, 16)}...`
+      : normalizedMemoPreview
+    : "";
   const isZonesLoading = zonesState === "loading";
   const zoneOptions = useMemo(
     () =>
@@ -1569,6 +1832,28 @@ export default function ProductDetailPage() {
                 <div style={kpiBlockStyle}>
                   <p style={labelStyle}>현재 재고</p>
                   <p style={stockValueStyle}>{stock}</p>
+                  <div style={memoChipHitAreaStyle}>
+                    <button
+                      type="button"
+                      style={{
+                        ...memoChipButtonStyle,
+                        ...(hasMemo ? memoChipFilledStyle : memoChipEmptyStyle),
+                      }}
+                      onClick={openMemoSheet}
+                    >
+                      <span aria-hidden="true">📝</span>
+                      {hasMemo ? (
+                        <>
+                          <span style={memoChipTextStyle}>{memoPreviewText}</span>
+                          <span style={memoChipDotStyle} aria-hidden="true">
+                            •
+                          </span>
+                        </>
+                      ) : (
+                        <span>메모 추가</span>
+                      )}
+                    </button>
+                  </div>
                   {expiryInfo.badge ? (
                     <div style={kpiBadgeRowStyle}>
                       <span style={expiryInfo.badge.style}>
@@ -1731,6 +2016,61 @@ export default function ProductDetailPage() {
               )}
             </section>
           </>
+        ) : null}
+        {isMemoSheetOpen ? (
+          <div
+            style={sheetOverlayStyle}
+            onClick={closeMemoSheet}
+            role="presentation"
+          >
+            <div
+              style={sheetPanelStyle}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="memo-sheet-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div style={sheetHeaderStyle}>
+                <h2 id="memo-sheet-title" style={modalTitleStyle}>
+                  메모 입력
+                </h2>
+                <button
+                  type="button"
+                  style={sheetCloseButtonStyle}
+                  onClick={closeMemoSheet}
+                  disabled={isMemoSaving}
+                  aria-label="메모 입력 닫기"
+                >
+                  닫기
+                </button>
+              </div>
+              <div style={sheetBodyStyle}>
+                <textarea
+                  value={memoDraft}
+                  onChange={(event) => {
+                    setMemoDraft(event.currentTarget.value);
+                    if (memoError) {
+                      setMemoError(null);
+                    }
+                  }}
+                  placeholder="메모를 입력해 주세요."
+                  aria-label="메모 입력"
+                  style={sheetTextareaStyle}
+                />
+                {memoError ? <p style={helperTextStyle}>{memoError}</p> : null}
+              </div>
+              <div style={sheetFooterStyle}>
+                <button
+                  type="button"
+                  style={sheetSaveButtonStyle}
+                  onClick={handleMemoSave}
+                  disabled={isMemoSaving}
+                >
+                  {isMemoSaving ? "저장 중..." : "저장"}
+                </button>
+              </div>
+            </div>
+          </div>
         ) : null}
         {adjustMode ? (
           <div style={modalOverlayStyle}>

@@ -25,6 +25,103 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.fabAddProduct {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  width: 56px;
+  height: 56px;
+  box-sizing: border-box;
+  border-radius: 16px;
+  border: 1.5px solid rgb(30, 42, 68);
+  background: rgba(255, 255, 255, 0.88);
+  color: rgb(30, 42, 68);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: rgba(30, 42, 68, 0.14) 0px 4px 14px;
+  z-index: 10;
+  transition: transform 180ms ease, box-shadow 180ms ease,
+    background-color 180ms ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  line-height: 0;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.fabAddProduct__icon {
+  width: 26px;
+  height: 26px;
+  display: block;
+}
+
+.fabAddProduct:hover {
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: rgba(30, 42, 68, 0.18) 0px 6px 18px;
+}
+
+.fabAddProduct:active {
+  transform: scale(0.98);
+  box-shadow: rgba(30, 42, 68, 0.12) 0px 3px 10px;
+}
+
+.fabAddProduct:focus-visible {
+  outline: 2px solid rgba(30, 42, 68, 0.35);
+  outline-offset: 3px;
+}
+
+.productsBackLink {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid #d6d2cc;
+  background: rgba(255, 255, 255, 0.92);
+  color: #2e2a27;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85), 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: transform 160ms ease, box-shadow 160ms ease,
+    background-color 160ms ease, border-color 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.productsBackLink:hover {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: #c9c3bc;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9), 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.productsBackLink:active {
+  transform: translateY(0) scale(0.99);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85), 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.productsBackLink:focus-visible {
+  outline: 2px solid rgba(30, 42, 68, 0.35);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fabAddProduct {
+    transition: none;
+  }
+
+  .productsBackLink {
+    transition: none;
+  }
+}
+
 .text-ink-3d {
   text-shadow:
     0 1px 0 rgba(255, 255, 255, 0.6),

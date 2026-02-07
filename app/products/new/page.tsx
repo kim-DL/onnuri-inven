@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, CSSProperties, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
 import { resizeImageForUpload } from "@/lib/resizeImageForUpload";
 import { supabase } from "@/lib/supabaseClient";
@@ -373,6 +374,7 @@ function buildPhotoPath(productId: string, file: File) {
 
 export default function NewProductPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [authState, setAuthState] = useState<AuthState>("checking");
   const [dataState, setDataState] = useState<DataState>("idle");
   const [zones, setZones] = useState<Zone[]>([]);
@@ -494,6 +496,9 @@ export default function NewProductPage() {
 
   const hasError =
     authState === "error" || (authState === "authed" && dataState === "error");
+
+  const queryString = searchParams.toString();
+  const backHref = queryString ? `/products?${queryString}` : "/products";
 
   const hasZones = zones.length > 0;
 
@@ -749,6 +754,11 @@ export default function NewProductPage() {
         ) : (
           <>
             <header style={headerStyle}>
+              <Link href={backHref} legacyBehavior>
+                <a className="productsBackLink" aria-label="제품 목록으로 돌아가기">
+                  돌아가기
+                </a>
+              </Link>
               <h1 style={titleStyle}>상품 등록</h1>
             </header>
 

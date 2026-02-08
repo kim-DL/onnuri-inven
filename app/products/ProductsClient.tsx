@@ -5,6 +5,7 @@ import type { CompositionEvent, CSSProperties, FormEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
+import DelayedRender from "@/app/_components/DelayedRender";
 import { useExpiryWarningDays } from "@/lib/useExpiryWarningDays";
 import {
   ZONE_KEYWORDS,
@@ -753,6 +754,8 @@ export default function ProductsPage() {
   const isLoading =
     authState === "checking" ||
     (authState === "authed" && (dataState === "idle" || dataState === "loading"));
+  const hasLoadedProducts = products.length > 0;
+  const shouldShowListSkeleton = isLoading && !hasLoadedProducts;
 
   const hasError =
     authState === "error" || (authState === "authed" && dataState === "error");
@@ -1119,14 +1122,16 @@ export default function ProductsPage() {
                 ) : null}
               </div>
 
-              {isLoading ? (
-                <SkeletonList />
-              ) : hasError ? (
+              {hasError ? (
                 <div style={cardStyle}>
                   <p style={helperTextStyle}>
                     {errorMessage ?? "목록을 불러오지 못했어요."}
                   </p>
                 </div>
+              ) : shouldShowListSkeleton ? (
+                <DelayedRender active={shouldShowListSkeleton} ms={150}>
+                  <SkeletonList />
+                </DelayedRender>
               ) : filteredProducts.length === 0 ? (
                 <div style={cardStyle}>
                   <p style={helperTextStyle}>조건에 맞는 상품이 없어요.</p>

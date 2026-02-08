@@ -487,6 +487,7 @@ function SkeletonList() {
 }
 
 export default function ProductsPage() {
+  const DETAIL_PREFETCH_LIMIT = 12;
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -511,6 +512,7 @@ export default function ProductsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
   const isComposingRef = useRef(false);
+  const prefetchedDetailHrefsRef = useRef(new Set<string>());
   const pendingUpdatesRef = useRef<{ zone?: string | null; q?: string } | null>(
     null
   );
@@ -681,6 +683,73 @@ export default function ProductsPage() {
     });
   }, [activeZone, products, tokens, zoneNameById]);
 
+  const detailQuery = searchParams.toString();
+  const detailQuerySuffix = detailQuery ? `?${detailQuery}` : "";
+
+  useEffect(() => {
+    if (authState !== "authed" || dataState !== "ready") {
+      return;
+    }
+
+    const candidateHrefs = filteredProducts
+      .slice(0, DETAIL_PREFETCH_LIMIT)
+      .map((product) => `/products/${product.id}${detailQuerySuffix}`);
+
+    if (candidateHrefs.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    let idleId: number | null = null;
+
+    const runPrefetch = () => {
+      if (cancelled) {
+        return;
+      }
+
+      candidateHrefs.forEach((href) => {
+        if (prefetchedDetailHrefsRef.current.has(href)) {
+          return;
+        }
+
+        prefetchedDetailHrefsRef.current.add(href);
+        router.prefetch(href);
+      });
+    };
+
+    type IdleWindow = Window & {
+      requestIdleCallback?: (
+        callback: (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void
+      ) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    const idleWindow = window as IdleWindow;
+
+    if (typeof idleWindow.requestIdleCallback === "function") {
+      idleId = idleWindow.requestIdleCallback(() => {
+        runPrefetch();
+      });
+    } else {
+      timeoutId = window.setTimeout(() => {
+        runPrefetch();
+      }, 0);
+    }
+
+    return () => {
+      cancelled = true;
+
+      if (idleId !== null && typeof idleWindow.cancelIdleCallback === "function") {
+        idleWindow.cancelIdleCallback(idleId);
+      }
+
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [authState, dataState, detailQuerySuffix, filteredProducts, router]);
+
   const isLoading =
     authState === "checking" ||
     (authState === "authed" && (dataState === "idle" || dataState === "loading"));
@@ -692,9 +761,6 @@ export default function ProductsPage() {
     authState === "authed" && expiryWarning.status === "error"
       ? "유통기한 기준을 불러오지 못했어요."
       : null;
-
-  const detailQuery = searchParams.toString();
-  const detailQuerySuffix = detailQuery ? `?${detailQuery}` : "";
   const archivedHref = detailQuery
     ? `/products/archived?${detailQuery}`
     : "/products/archived";
@@ -1155,26 +1221,24 @@ export default function ProductsPage() {
               )}
             </div>
             {authState === "authed" ? (
-              <Link href="/products/new" legacyBehavior>
-                <a className="fabAddProduct" aria-label="제품 추가">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="26"
-                    height="26"
-                    aria-hidden="true"
-                    focusable="false"
-                    className="fabAddProduct__icon"
-                  >
-                    <path
-                      d="M12 5v14M5 12h14"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.75"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </a>
+              <Link href="/products/new" className="fabAddProduct" aria-label="제품 추가">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="26"
+                  height="26"
+                  aria-hidden="true"
+                  focusable="false"
+                  className="fabAddProduct__icon"
+                >
+                  <path
+                    d="M12 5v14M5 12h14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </Link>
             ) : null}
           </>

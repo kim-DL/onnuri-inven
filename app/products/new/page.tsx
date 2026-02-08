@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, CSSProperties, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import DelayedRender from "@/app/_components/DelayedRender";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
 import { resizeImageForUpload } from "@/lib/resizeImageForUpload";
 import { supabase } from "@/lib/supabaseClient";
@@ -720,7 +721,9 @@ export default function NewProductPage() {
             ) : null}
           </div>
         ) : isLoading ? (
-          <SkeletonForm />
+          <DelayedRender active={isLoading} ms={150}>
+            <SkeletonForm />
+          </DelayedRender>
         ) : hasError ? (
           <div style={cardStyle}>
             <p style={helperTextStyle}>

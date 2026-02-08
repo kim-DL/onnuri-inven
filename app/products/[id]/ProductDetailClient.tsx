@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, CSSProperties } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import DelayedRender from "@/app/_components/DelayedRender";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
 import { resizeImageForUpload } from "@/lib/resizeImageForUpload";
 import { supabase } from "@/lib/supabaseClient";
@@ -1326,6 +1327,8 @@ export default function ProductDetailPage() {
   const isLoading =
     authState === "checking" ||
     (authState === "authed" && (dataState === "idle" || dataState === "loading"));
+  const hasLoadedProduct = product !== null;
+  const shouldShowDetailSkeleton = isLoading && !hasLoadedProduct && !notFound;
 
   const hasError =
     authState === "error" || (authState === "authed" && dataState === "error");
@@ -1786,8 +1789,6 @@ export default function ProductDetailPage() {
               <p style={helperTextStyle}>{signOutError}</p>
             ) : null}
           </div>
-        ) : isLoading ? (
-          <SkeletonDetail />
         ) : hasError ? (
           <div style={cardStyle}>
             <p style={helperTextStyle}>
@@ -2016,6 +2017,10 @@ export default function ProductDetailPage() {
               )}
             </section>
           </>
+        ) : shouldShowDetailSkeleton ? (
+          <DelayedRender active={shouldShowDetailSkeleton} ms={150}>
+            <SkeletonDetail />
+          </DelayedRender>
         ) : null}
         {isMemoSheetOpen ? (
           <div

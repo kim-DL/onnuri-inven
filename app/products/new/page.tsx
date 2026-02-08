@@ -750,10 +750,12 @@ export default function NewProductPage() {
         ) : (
           <>
             <header style={headerStyle}>
-              <Link href="/products" legacyBehavior>
-                <a className="productsBackLink" aria-label="제품 목록으로 돌아가기">
-                  돌아가기
-                </a>
+              <Link
+                href="/products"
+                className="productsBackLink"
+                aria-label="제품 목록으로 돌아가기"
+              >
+                돌아가기
               </Link>
               <h1 style={titleStyle}>상품 등록</h1>
             </header>

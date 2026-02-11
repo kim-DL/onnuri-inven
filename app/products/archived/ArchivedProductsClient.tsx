@@ -7,6 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseClient";
 import { ZONE_KEYWORDS, parseSearchTokens, tokensMatchText } from "@/lib/search";
+import { invalidateProductsListDataCache } from "@/lib/useProductsListData";
 
 type Zone = {
   id: string;
@@ -653,6 +654,7 @@ export default function ArchivedProductsPage() {
 
     setRestoreTarget(null);
     setIsRestoring(false);
+    invalidateProductsListDataCache();
     await loadArchived();
   };
 

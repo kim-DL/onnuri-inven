@@ -771,6 +771,12 @@ export default function ProductsPage() {
   };
 
   const handleSearchBlur = () => {
+    if (!isComposingRef.current) {
+      const nextQuery = draftQuery.trim();
+      if (nextQuery !== committedQuery) {
+        updateSearchParams({ q: nextQuery });
+      }
+    }
     setIsEditing(false);
   };
 

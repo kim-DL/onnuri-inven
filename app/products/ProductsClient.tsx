@@ -130,6 +130,7 @@ const scrollAreaStyle: CSSProperties = {
   flexDirection: "column",
   minHeight: 0,
   overflowY: "auto",
+  scrollbarGutter: "stable",
   gap: "10px",
   paddingBottom: "96px",
 };
@@ -237,13 +238,14 @@ const cardStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "8px",
+  minHeight: "82px",
 };
 
 const cardContentStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "64px minmax(0, 1fr)",
   gap: "6px",
-  alignItems: "flex-start",
+  alignItems: "stretch",
 };
 
 const thumbnailStyle: CSSProperties = {
@@ -281,7 +283,9 @@ const thumbnailImageStyle: CSSProperties = {
 const cardBodyStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
+  justifyContent: "space-between",
   gap: "4px",
+  minHeight: "64px",
   minWidth: 0,
 };
 
@@ -304,6 +308,7 @@ const cardTitleStyle: CSSProperties = {
   fontWeight: 700,
   margin: 0,
   lineHeight: 1.2,
+  minHeight: "2.4em",
   display: "-webkit-box",
   WebkitLineClamp: 2,
   WebkitBoxOrient: "vertical",

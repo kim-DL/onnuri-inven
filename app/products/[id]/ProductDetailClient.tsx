@@ -1327,8 +1327,8 @@ export default function ProductDetailPage() {
   const isLoading =
     authState === "checking" ||
     (authState === "authed" && (dataState === "idle" || dataState === "loading"));
-  const hasLoadedProduct = product !== null;
-  const shouldShowDetailSkeleton = isLoading && !hasLoadedProduct && !notFound;
+  const hasLoadedCurrentProduct = product?.id === productId;
+  const shouldShowDetailSkeleton = isLoading && !hasLoadedCurrentProduct && !notFound;
 
   const hasError =
     authState === "error" || (authState === "authed" && dataState === "error");

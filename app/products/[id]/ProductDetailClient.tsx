@@ -16,6 +16,7 @@ import {
 import { resizeImageForUpload } from "@/lib/resizeImageForUpload";
 import { supabase } from "@/lib/supabaseClient";
 import { useExpiryWarningDays } from "@/lib/useExpiryWarningDays";
+import { invalidateProductsListDataCache } from "@/lib/useProductsListData";
 
 type Product = {
   id: string;

@@ -577,46 +577,30 @@ export default function NewProductPage() {
       active: true,
     };
 
-    const { data: productData, error: productError } = await supabase
-      .from("products")
-      .insert(payload)
-      .select("id")
-      .single();
-
-    if (productError || !productData) {
-      console.error("Failed to create product", productError);
-      setSubmitError("저장에 실패했어요.");
-      setIsSubmitting(false);
-      return;
-    }
-
-    const { error: inventoryError } = await supabase
-      .from("inventory")
-      .insert({ product_id: productData.id, stock: 0 });
-
-    if (inventoryError) {
-      console.error("Failed to create inventory", inventoryError);
-      setSubmitError("저장에 실패했어요.");
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (initialQty > 0) {
-      const { error: adjustError } = await supabase.rpc("adjust_stock", {
-        p_product_id: productData.id,
-        p_delta: initialQty,
-        p_note: null,
+    const { data: createdProductId, error: createProductError } = await supabase
+      .rpc("create_product_with_inventory", {
+        p_name: payload.name,
+        p_zone_id: payload.zone_id,
+        p_manufacturer: payload.manufacturer,
+        p_unit: payload.unit,
+        p_spec: payload.spec,
+        p_origin_country: payload.origin_country,
+        p_expiry_date: payload.expiry_date,
+        p_initial_qty: initialQty,
       });
 
-      if (adjustError) {
-        console.error("Failed to adjust stock", adjustError);
-        warnings.push("제품은 저장됐지만 초기 재고 등록에 실패했어요.");
-      }
+    if (createProductError || typeof createdProductId !== "string") {
+      console.error("Failed to create product", createProductError);
+      setSubmitError("저장에 실패했어요.");
+      setIsSubmitting(false);
+      return;
     }
+
+    const productId = createdProductId;
 
     if (photoFile) {
       const uploadFile = await resizeImageForUpload(photoFile);
-      const photoPath = buildProductPhotoPath(productData.id, uploadFile);
+      const photoPath = buildProductPhotoPath(productId, uploadFile);
       const { error: uploadError } = await supabase.storage
         .from(PRODUCT_PHOTO_BUCKET)
         .upload(photoPath, uploadFile, {
@@ -634,7 +618,7 @@ export default function NewProductPage() {
         const { error: updateError } = await supabase
           .from("products")
           .update({ photo_url: photoPath })
-          .eq("id", productData.id);
+          .eq("id", productId);
 
         if (updateError) {
           console.error("Failed to update product photo", {

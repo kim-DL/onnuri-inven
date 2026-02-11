@@ -1443,6 +1443,7 @@ export default function ProductDetailPage() {
     setProduct((prev) => (prev ? { ...prev, photo_url: nextPath } : prev));
     setPhotoSuccess("사진을 변경했어요.");
     setIsPhotoUpdating(false);
+    invalidateProductsListDataCache();
 
     if (isStorageProductPhotoRef(previousPhotoRef)) {
       const { error: removeError } = await supabase.storage
@@ -1472,18 +1473,6 @@ export default function ProductDetailPage() {
     setPhotoSuccess(null);
     setIsPhotoUpdating(true);
 
-    if (isStorageProductPhotoRef(currentPhotoRef)) {
-      const { error: removeError } = await supabase.storage
-        .from(PRODUCT_PHOTO_BUCKET)
-        .remove([currentPhotoRef]);
-      if (removeError) {
-        console.error("Failed to remove photo", {
-          message: removeError?.message,
-
-        });
-      }
-    }
-
     const { error: updateError } = await supabase
       .from("products")
       .update({ photo_url: null })
@@ -1499,6 +1488,18 @@ export default function ProductDetailPage() {
       setPhotoError(getPhotoErrorMessage(updateError, "사진 삭제에 실패했어요."));
       setIsPhotoUpdating(false);
       return;
+    }
+
+    if (isStorageProductPhotoRef(currentPhotoRef)) {
+      const { error: removeError } = await supabase.storage
+        .from(PRODUCT_PHOTO_BUCKET)
+        .remove([currentPhotoRef]);
+      if (removeError) {
+        console.error("Failed to remove photo", {
+          message: removeError?.message,
+
+        });
+      }
     }
 
     setProduct((prev) => (prev ? { ...prev, photo_url: null } : prev));
@@ -1643,6 +1644,33 @@ export default function ProductDetailPage() {
     setAdjustError(null);
     setIsAdjusting(true);
 
+    if (isAdjust) {
+      const { error } = await supabase.rpc("adjust_stock_to", {
+        p_product_id: productId,
+        p_target_stock: quantity,
+        p_note: "ADJUST",
+      });
+
+      if (error) {
+        console.error("Failed to adjust stock", error);
+        setAdjustError(getAdjustErrorMessage(error));
+        setIsAdjusting(false);
+        return;
+      }
+
+      invalidateProductsListDataCache();
+      const refreshed = await refreshInventoryAndLogs(productId);
+      setIsAdjusting(false);
+      setAdjustMode(null);
+      setAdjustQty("");
+      setAdjustValidationError(null);
+
+      if (!refreshed) {
+        setAdjustError("?ш퀬 ?뺣낫瑜?媛깆떊?섏? 紐삵뻽?댁슂.");
+      }
+      return;
+    }
+
     let delta = 0;
     if (isAdjust) {
       const { data, error } = await supabase
@@ -1663,7 +1691,7 @@ export default function ProductDetailPage() {
     const { error } = await supabase.rpc("adjust_stock", {
       p_product_id: productId,
       p_delta: delta,
-      p_note: isAdjust ? "ADJUST" : null,
+      p_note: null,
     });
 
     if (error) {

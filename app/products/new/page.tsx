@@ -13,6 +13,7 @@ import {
 } from "@/lib/productPhoto";
 import { resizeImageForUpload } from "@/lib/resizeImageForUpload";
 import { supabase } from "@/lib/supabaseClient";
+import { invalidateProductsListDataCache } from "@/lib/useProductsListData";
 
 type Zone = {
   id: string;
@@ -661,6 +662,7 @@ export default function NewProductPage() {
     setPhotoPreviewUrl(null);
     setPhotoError(null);
     setSubmitWarning(warnings.length > 0 ? warnings.join(" ") : null);
+    invalidateProductsListDataCache();
     setIsSuccess(true);
   };
 

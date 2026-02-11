@@ -9,34 +9,17 @@ import DelayedRender from "@/app/_components/DelayedRender";
 import { resolveProductPhotoUrl } from "@/lib/productPhoto";
 import { useExpiryWarningDays } from "@/lib/useExpiryWarningDays";
 import {
+  useProductsListData,
+  type ProductsListProduct,
+  type ProductsListZone,
+} from "@/lib/useProductsListData";
+import {
   ZONE_KEYWORDS,
   parseSearchTokens,
   tokensMatchText,
 } from "../../lib/search";
 
-type Zone = {
-  id: string;
-  name: string;
-};
-
-type Product = {
-  id: string;
-  name: string;
-  manufacturer: string | null;
-  zone_id: string | null;
-  expiry_date: string | null;
-  photo_url: string | null;
-  unit: string | null;
-};
-
-type InventoryRow = {
-  product_id: string;
-  stock: number;
-};
-
 type AuthState = "checking" | "authed" | "blocked" | "error";
-
-type DataState = "idle" | "loading" | "ready" | "error";
 
 const ZONE_PARAM_MAP = new Map(
   ZONE_KEYWORDS.map((keyword) => [keyword.toLowerCase(), keyword])
@@ -416,6 +399,9 @@ const buttonStyle: CSSProperties = {
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const EMPTY_ZONES: ProductsListZone[] = [];
+const EMPTY_PRODUCTS: ProductsListProduct[] = [];
+const EMPTY_STOCK_BY_PRODUCT_ID = new Map<string, number>();
 
 function getDaysLeft(dateValue: string) {
   const parts = dateValue.split("-");
@@ -487,12 +473,17 @@ export default function ProductsPage() {
   const selectedZone = normalizeZoneParam(searchParams.get("zone"));
   const query = searchParams.get("q") ?? "";
   const [authState, setAuthState] = useState<AuthState>("checking");
-  const [dataState, setDataState] = useState<DataState>("idle");
-  const [zones, setZones] = useState<Zone[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [stockByProductId, setStockByProductId] = useState<Map<string, number>>(
-    new Map()
-  );
+  const productsList = useProductsListData({
+    enabled: authState === "authed",
+  });
+  const dataState = authState === "authed" ? productsList.status : "idle";
+  const zones = authState === "authed" ? productsList.zones : EMPTY_ZONES;
+  const products =
+    authState === "authed" ? productsList.products : EMPTY_PRODUCTS;
+  const stockByProductId =
+    authState === "authed"
+      ? productsList.stockByProductId
+      : EMPTY_STOCK_BY_PRODUCT_ID;
   const expiryWarning = useExpiryWarningDays({
     enabled: authState === "authed",
   });
@@ -576,68 +567,6 @@ export default function ProductsPage() {
       cancelled = true;
     };
   }, [router]);
-
-  useEffect(() => {
-    if (authState !== "authed") {
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadData = async () => {
-      setDataState("loading");
-      setErrorMessage(null);
-
-      const [zonesResult, productsResult, inventoryResult] = await Promise.all(
-        [
-          supabase.from("zones").select("id, name").order("sort_order"),
-          supabase
-            .from("products")
-            .select("id, name, manufacturer, zone_id, expiry_date, photo_url, unit")
-            .eq("active", true)
-            .order("name"),
-          supabase.from("inventory").select("product_id, stock"),
-        ]
-      );
-
-      if (cancelled) {
-        return;
-      }
-
-      if (zonesResult.error || productsResult.error || inventoryResult.error) {
-        if (zonesResult.error) {
-          console.error("Failed to fetch zones", zonesResult.error);
-        }
-        if (productsResult.error) {
-          console.error("Failed to fetch products", productsResult.error);
-        }
-        if (inventoryResult.error) {
-          console.error("Failed to fetch inventory", inventoryResult.error);
-        }
-        setErrorMessage("상품 목록을 불러오지 못했어요.");
-        setDataState("error");
-        return;
-      }
-
-      const stockMap = new Map<string, number>();
-      (inventoryResult.data as InventoryRow[] | null | undefined)?.forEach(
-        (row) => {
-          stockMap.set(row.product_id, row.stock);
-        }
-      );
-
-      setZones(zonesResult.data ?? []);
-      setProducts(productsResult.data ?? []);
-      setStockByProductId(stockMap);
-      setDataState("ready");
-    };
-
-    loadData();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authState]);
 
   const zoneNameById = useMemo(() => {
     const map = new Map<string, string>();

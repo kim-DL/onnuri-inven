@@ -1503,6 +1503,7 @@ export default function ProductDetailPage() {
     setProduct((prev) => (prev ? { ...prev, photo_url: null } : prev));
     setPhotoSuccess("사진을 삭제했어요.");
     setIsPhotoUpdating(false);
+    invalidateProductsListDataCache();
   };
 
   const handleEditConfirm = async () => {
@@ -1603,6 +1604,7 @@ export default function ProductDetailPage() {
     setIsEditOpen(false);
     setEditErrors({});
     setEditError(null);
+    invalidateProductsListDataCache();
   };
 
   const handleAdjustConfirm = async () => {
@@ -1670,6 +1672,7 @@ export default function ProductDetailPage() {
       return;
     }
 
+    invalidateProductsListDataCache();
     const refreshed = await refreshInventoryAndLogs(productId);
     setIsAdjusting(false);
     setAdjustMode(null);
@@ -1725,6 +1728,7 @@ export default function ProductDetailPage() {
     }
 
     setIsArchiving(false);
+    invalidateProductsListDataCache();
     router.replace(backHref);
   };
 

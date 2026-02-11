@@ -6,6 +6,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import DelayedRender from "@/app/_components/DelayedRender";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
+import {
+  buildProductPhotoPath,
+  PRODUCT_PHOTO_BUCKET,
+  PRODUCT_PHOTO_UPLOAD_CACHE_CONTROL,
+} from "@/lib/productPhoto";
 import { resizeImageForUpload } from "@/lib/resizeImageForUpload";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -346,33 +351,6 @@ function normalizeOptional(value: string) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function getPhotoExtension(file: File) {
-  const type = file.type.toLowerCase();
-  if (type === "image/jpeg" || type === "image/jpg") {
-    return "jpg";
-  }
-  if (type === "image/png") {
-    return "png";
-  }
-  if (type === "image/webp") {
-    return "webp";
-  }
-  if (type === "image/heic") {
-    return "heic";
-  }
-  if (type === "image/heif") {
-    return "heif";
-  }
-  const match = file.name.toLowerCase().match(/\.([a-z0-9]+)$/);
-  return match?.[1] ?? "jpg";
-}
-
-function buildPhotoPath(productId: string, file: File) {
-  const extension = getPhotoExtension(file);
-  const fileId = crypto.randomUUID();
-  return `products/${productId}/${fileId}.${extension}`;
-}
-
 export default function NewProductPage() {
   const router = useRouter();
   const [authState, setAuthState] = useState<AuthState>("checking");
@@ -637,10 +615,13 @@ export default function NewProductPage() {
 
     if (photoFile) {
       const uploadFile = await resizeImageForUpload(photoFile);
-      const photoPath = buildPhotoPath(productData.id, uploadFile);
+      const photoPath = buildProductPhotoPath(productData.id, uploadFile);
       const { error: uploadError } = await supabase.storage
-        .from("product-photos")
-        .upload(photoPath, uploadFile, { upsert: false });
+        .from(PRODUCT_PHOTO_BUCKET)
+        .upload(photoPath, uploadFile, {
+          upsert: false,
+          cacheControl: PRODUCT_PHOTO_UPLOAD_CACHE_CONTROL,
+        });
 
       if (uploadError) {
         console.error("Failed to upload product photo", {
@@ -663,7 +644,7 @@ export default function NewProductPage() {
           });
           warnings.push("제품은 저장됐지만 사진 연결에 실패했어요.");
           const { error: cleanupError } = await supabase.storage
-            .from("product-photos")
+            .from(PRODUCT_PHOTO_BUCKET)
             .remove([photoPath]);
           if (cleanupError) {
             console.error("Failed to clean up product photo", {

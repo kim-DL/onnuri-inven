@@ -6,6 +6,13 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import DelayedRender from "@/app/_components/DelayedRender";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
+import {
+  buildProductPhotoPath,
+  isStorageProductPhotoRef,
+  PRODUCT_PHOTO_BUCKET,
+  PRODUCT_PHOTO_UPLOAD_CACHE_CONTROL,
+  resolveProductPhotoUrl,
+} from "@/lib/productPhoto";
 import { resizeImageForUpload } from "@/lib/resizeImageForUpload";
 import { supabase } from "@/lib/supabaseClient";
 import { useExpiryWarningDays } from "@/lib/useExpiryWarningDays";
@@ -772,51 +779,6 @@ function formatOptionalLabel(value: string | null | undefined) {
   return trimmed ? trimmed : "미입력";
 }
 
-function resolvePhotoUrl(photoRef: string) {
-  if (!photoRef) {
-    return "";
-  }
-  if (photoRef.startsWith("http://") || photoRef.startsWith("https://")) {
-    return photoRef;
-  }
-  const { data } = supabase.storage.from("product-photos").getPublicUrl(photoRef);
-  return data.publicUrl ?? "";
-}
-
-function isStoragePhotoRef(photoRef: string) {
-  if (!photoRef) {
-    return false;
-  }
-  return !photoRef.startsWith("http://") && !photoRef.startsWith("https://");
-}
-
-function getPhotoExtension(file: File) {
-  const type = file.type.toLowerCase();
-  if (type === "image/jpeg" || type === "image/jpg") {
-    return "jpg";
-  }
-  if (type === "image/png") {
-    return "png";
-  }
-  if (type === "image/webp") {
-    return "webp";
-  }
-  if (type === "image/heic") {
-    return "heic";
-  }
-  if (type === "image/heif") {
-    return "heif";
-  }
-  const match = file.name.toLowerCase().match(/\.([a-z0-9]+)$/);
-  return match?.[1] ?? "jpg";
-}
-
-function buildPhotoPath(productId: string, file: File) {
-  const extension = getPhotoExtension(file);
-  const fileId = crypto.randomUUID();
-  return `products/${productId}/${fileId}.${extension}`;
-}
-
 function getPhotoErrorMessage(
   error: { message?: string; code?: string } | null | undefined,
   fallback: string
@@ -1372,7 +1334,7 @@ export default function ProductDetailPage() {
     return { label: expiryDate, badge: null };
   })();
   const photoRef = product?.photo_url?.trim() ?? "";
-  const photoSrc = photoRef ? resolvePhotoUrl(photoRef) : "";
+  const photoSrc = resolveProductPhotoUrl(photoRef);
   const hasPhoto = photoSrc.length > 0 && photoErrorSrc !== photoSrc;
   const memoText = (product?.memo ?? "").trim();
   const hasMemo = memoText.length > 0;
@@ -1432,11 +1394,14 @@ export default function ProductDetailPage() {
 
     const previousPhotoRef = product?.photo_url?.trim() ?? "";
     const uploadFile = await resizeImageForUpload(file);
-    const nextPath = buildPhotoPath(productId, uploadFile);
+    const nextPath = buildProductPhotoPath(productId, uploadFile);
 
     const { error: uploadError } = await supabase.storage
-      .from("product-photos")
-      .upload(nextPath, uploadFile, { upsert: false });
+      .from(PRODUCT_PHOTO_BUCKET)
+      .upload(nextPath, uploadFile, {
+        upsert: false,
+        cacheControl: PRODUCT_PHOTO_UPLOAD_CACHE_CONTROL,
+      });
 
     if (uploadError) {
       console.error("Failed to upload photo", {
@@ -1462,7 +1427,7 @@ export default function ProductDetailPage() {
       });
       setPhotoError(getPhotoErrorMessage(updateError, "사진 변경에 실패했어요."));
       const { error: cleanupError } = await supabase.storage
-        .from("product-photos")
+        .from(PRODUCT_PHOTO_BUCKET)
         .remove([nextPath]);
       if (cleanupError) {
         console.error("Failed to clean up photo upload", {
@@ -1478,9 +1443,9 @@ export default function ProductDetailPage() {
     setPhotoSuccess("사진을 변경했어요.");
     setIsPhotoUpdating(false);
 
-    if (isStoragePhotoRef(previousPhotoRef)) {
+    if (isStorageProductPhotoRef(previousPhotoRef)) {
       const { error: removeError } = await supabase.storage
-        .from("product-photos")
+        .from(PRODUCT_PHOTO_BUCKET)
         .remove([previousPhotoRef]);
       if (removeError) {
         console.error("Failed to remove old photo", {
@@ -1506,9 +1471,9 @@ export default function ProductDetailPage() {
     setPhotoSuccess(null);
     setIsPhotoUpdating(true);
 
-    if (isStoragePhotoRef(currentPhotoRef)) {
+    if (isStorageProductPhotoRef(currentPhotoRef)) {
       const { error: removeError } = await supabase.storage
-        .from("product-photos")
+        .from(PRODUCT_PHOTO_BUCKET)
         .remove([currentPhotoRef]);
       if (removeError) {
         console.error("Failed to remove photo", {

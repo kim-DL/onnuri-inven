@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import DelayedRender from "@/app/_components/DelayedRender";
+import { resolveProductPhotoUrl } from "@/lib/productPhoto";
 import { useExpiryWarningDays } from "@/lib/useExpiryWarningDays";
 import {
   ZONE_KEYWORDS,
@@ -455,16 +456,6 @@ function getDaysLeft(dateValue: string) {
   return Math.floor((targetDate.getTime() - todayLocal.getTime()) / MS_PER_DAY);
 }
 
-function resolvePhotoUrl(photoRef: string) {
-  if (!photoRef) {
-    return "";
-  }
-  if (photoRef.startsWith("http://") || photoRef.startsWith("https://")) {
-    return photoRef;
-  }
-  const { data } = supabase.storage.from("product-photos").getPublicUrl(photoRef);
-  return data.publicUrl ?? "";
-}
 function normalizeZoneParam(zoneParam: string | null): string | null {
   if (!zoneParam) {
     return null;
@@ -1166,7 +1157,7 @@ export default function ProductsPage() {
                       }
                     }
                     const photoRef = product.photo_url?.trim() ?? "";
-                    const photoSrc = photoRef ? resolvePhotoUrl(photoRef) : "";
+                    const photoSrc = resolveProductPhotoUrl(photoRef);
                     const hasPhoto = photoSrc.length > 0;
                     const detailHref = `/products/${product.id}${detailQuerySuffix}`;
                     return (

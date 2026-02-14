@@ -236,11 +236,6 @@ const inputErrorStyle: CSSProperties = {
   background: "#FFF7F7",
 };
 
-const inputErrorStyle: CSSProperties = {
-  border: "1px solid #D14343",
-  background: "#FFF7F7",
-};
-
 const selectStyle: CSSProperties = {
   ...inputStyle,
 };

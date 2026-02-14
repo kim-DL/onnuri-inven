@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, CSSProperties, FormEvent } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import DelayedRender from "@/app/_components/DelayedRender";
+import cameraIcon from "@/asset/camera.png";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
 import {
   buildProductPhotoPath,
@@ -39,7 +41,7 @@ type FormErrors = Partial<Record<keyof FormState, string>>;
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
   background: "#F9F8F6",
-  padding: "16px",
+  padding: "8px",
 };
 
 const containerStyle: CSSProperties = {
@@ -47,18 +49,20 @@ const containerStyle: CSSProperties = {
   margin: "0 auto",
   display: "flex",
   flexDirection: "column",
-  gap: "16px",
+  gap: "8px",
 };
 
 const headerStyle: CSSProperties = {
   display: "flex",
-  flexDirection: "column",
-  gap: "6px",
+  alignItems: "center",
+  gap: "8px",
+  flexWrap: "wrap",
 };
 
 const titleStyle: CSSProperties = {
-  fontSize: "22px",
+  fontSize: "20px",
   fontWeight: 700,
+  lineHeight: 1.2,
   margin: 0,
 };
 
@@ -69,78 +73,57 @@ const helperTextStyle: CSSProperties = {
 };
 
 const cardStyle: CSSProperties = {
-  padding: "16px",
+  padding: "9px",
   borderRadius: "12px",
   border: "1px solid #E3DED8",
   background: "#FFFFFF",
   display: "flex",
   flexDirection: "column",
-  gap: "12px",
+  gap: "8px",
 };
 
-const requiredCardStyle: CSSProperties = {
+const formCardStyle: CSSProperties = {
   ...cardStyle,
-};
-
-const optionalCardStyle: CSSProperties = {
-  ...cardStyle,
-  background: "#FBFAF8",
-  border: "1px solid #EFEAE3",
+  gap: "9px",
 };
 
 const photoSectionStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  alignItems: "center",
-  gap: "10px",
-  textAlign: "center",
+  gap: "6px",
 };
 
-const photoSlotStyle: CSSProperties = {
-  width: "60%",
-  maxWidth: "240px",
-  minWidth: "180px",
-  aspectRatio: "1 / 1",
-  borderRadius: "16px",
-  border: "1px solid #E3DED8",
+const photoButtonStyle: CSSProperties = {
+  width: "100%",
+  minHeight: "58px",
+  borderRadius: "12px",
+  border: "1px solid #D6D2CC",
+  background: "#FFFFFF",
+  appearance: "none",
+  display: "flex",
+  alignItems: "center",
+  gap: "9px",
+  padding: "7px 9px",
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+const photoButtonDisabledStyle: CSSProperties = {
+  opacity: 0.7,
+  cursor: "default",
+};
+
+const photoThumbStyle: CSSProperties = {
+  width: "40px",
+  height: "40px",
+  borderRadius: "10px",
+  border: "1px solid #DDD6CE",
   background: "#F1EDE7",
   overflow: "hidden",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  cursor: "pointer",
-  alignSelf: "center",
-  position: "relative",
-};
-
-const photoPlaceholderStyle: CSSProperties = {
-  fontSize: "14px",
-  color: "#6C645F",
-  fontWeight: 600,
-  textAlign: "center",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  gap: "8px",
-};
-
-const photoHintIconStyle: CSSProperties = {
-  width: "32px",
-  height: "32px",
-  borderRadius: "999px",
-  border: "1px solid #D6D2CC",
-  background: "#FFFFFF",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: "18px",
-  color: "#6C645F",
-};
-
-const photoHintTextStyle: CSSProperties = {
-  fontSize: "12px",
-  color: "#6C645F",
-  margin: 0,
+  flexShrink: 0,
 };
 
 const photoImageStyle: CSSProperties = {
@@ -150,24 +133,50 @@ const photoImageStyle: CSSProperties = {
   display: "block",
 };
 
-const photoOverlayStyle: CSSProperties = {
-  position: "absolute",
-  bottom: "8px",
-  right: "8px",
-  background: "rgba(46, 42, 39, 0.74)",
-  color: "#FFFFFF",
-  padding: "4px 8px",
-  borderRadius: "999px",
-  fontSize: "11px",
-  fontWeight: 600,
-  display: "flex",
-  alignItems: "center",
-  gap: "4px",
+const photoCameraIconStyle: CSSProperties = {
+  width: "20px",
+  height: "20px",
+  objectFit: "contain",
 };
 
-const photoOverlayIconStyle: CSSProperties = {
+const photoTextGroupStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "2px",
+  flex: 1,
+  minWidth: 0,
+};
+
+const photoPrimaryTextStyle: CSSProperties = {
+  fontSize: "14px",
+  color: "#2E2A27",
+  fontWeight: 700,
+  margin: 0,
+};
+
+const photoSecondaryTextStyle: CSSProperties = {
   fontSize: "12px",
-  lineHeight: 1,
+  color: "#554E48",
+  margin: 0,
+};
+
+const photoActionIconStyle: CSSProperties = {
+  width: "22px",
+  height: "22px",
+  borderRadius: "999px",
+  border: "1px solid #DDD6CE",
+  background: "#F8F4EE",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: "16px",
+  color: "#6C645F",
+};
+
+const formSectionStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "7px",
 };
 
 const sectionTitleStyle: CSSProperties = {
@@ -176,44 +185,51 @@ const sectionTitleStyle: CSSProperties = {
   margin: 0,
 };
 
-const optionalSectionTitleStyle: CSSProperties = {
-  fontSize: "14px",
-  fontWeight: 600,
-  margin: 0,
-  color: "#6C645F",
+const sectionDividerStyle: CSSProperties = {
+  borderTop: "1px solid #EFEAE3",
+  margin: "0",
 };
 
-const sectionHeaderStyle: CSSProperties = {
+const fieldStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "4px",
 };
 
-
-const fieldStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "6px",
-};
-
 const labelStyle: CSSProperties = {
-  fontSize: "13px",
+  fontSize: "12px",
   color: "#2E2A27",
   margin: 0,
   fontWeight: 600,
 };
 
+const requiredMarkStyle: CSSProperties = {
+  color: "#C81E1E",
+  marginLeft: "2px",
+};
+
 const inputStyle: CSSProperties = {
   minHeight: "44px",
-  padding: "0 12px",
+  padding: "0 10px",
   borderRadius: "10px",
   border: "1px solid #D6D2CC",
-  fontSize: "15px",
+  fontSize: "14px",
   background: "#FFFFFF",
+};
+
+const inputErrorStyle: CSSProperties = {
+  border: "1px solid #D14343",
+  background: "#FFF7F7",
 };
 
 const selectStyle: CSSProperties = {
   ...inputStyle,
+};
+
+const fieldErrorTextStyle: CSSProperties = {
+  fontSize: "12px",
+  color: "#B42318",
+  margin: 0,
 };
 
 const gridFieldStyle: CSSProperties = {
@@ -224,7 +240,7 @@ const gridFieldStyle: CSSProperties = {
 const optionalGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: "12px",
+  gap: "7px",
 };
 
 const buttonStyle: CSSProperties = {
@@ -261,7 +277,7 @@ const stickyBarStyle: CSSProperties = {
   position: "sticky",
   bottom: "0",
   background: "#F9F8F6",
-  padding: "12px 0 16px",
+  padding: "6px 0 8px",
   borderTop: "1px solid #E3DED8",
 };
 
@@ -291,31 +307,19 @@ const skeletonBlockStyle: CSSProperties = {
 
 function SkeletonForm() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-      <div style={{ ...skeletonBlockStyle, height: "28px", width: "40%" }} />
-      <div style={photoSectionStyle}>
-        <div
-          style={{
-            ...skeletonBlockStyle,
-            width: "60%",
-            maxWidth: "220px",
-            aspectRatio: "1 / 1",
-          }}
-        />
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div style={{ ...skeletonBlockStyle, height: "28px", width: "38%" }} />
+      <div style={{ ...skeletonBlockStyle, height: "56px", width: "100%" }} />
       <div style={{ ...cardStyle, border: "none" }}>
-        <div style={{ ...skeletonBlockStyle, height: "16px", width: "30%" }} />
-        <div style={{ ...skeletonBlockStyle, height: "44px", width: "100%" }} />
         <div style={{ ...skeletonBlockStyle, height: "44px", width: "100%" }} />
         <div style={{ ...skeletonBlockStyle, height: "44px", width: "100%" }} />
       </div>
       <div style={{ ...cardStyle, border: "none" }}>
-        <div style={{ ...skeletonBlockStyle, height: "14px", width: "40%" }} />
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-            gap: "12px",
+            gap: "6px",
           }}
         >
           <div style={{ ...skeletonBlockStyle, height: "44px", width: "100%" }} />
@@ -332,6 +336,9 @@ function SkeletonForm() {
           />
         </div>
       </div>
+      <div style={{ ...cardStyle, border: "none" }}>
+        <div style={{ ...skeletonBlockStyle, height: "44px", width: "100%" }} />
+      </div>
     </div>
   );
 }
@@ -344,7 +351,7 @@ const defaultForm: FormState = {
   spec: "",
   originCountry: "",
   expiryDate: "",
-  initialQty: "0",
+  initialQty: "",
 };
 
 function normalizeOptional(value: string) {
@@ -545,15 +552,15 @@ export default function NewProductPage() {
 
     let initialQty = 0;
     const qtyRaw = formState.initialQty.trim();
-    if (qtyRaw !== "") {
-      if (!/^\d+$/.test(qtyRaw)) {
-        errors.initialQty = "수량은 0 이상의 정수로 입력해 주세요.";
-      } else {
-        initialQty = Number(qtyRaw);
+    if (qtyRaw === "") {
+      errors.initialQty = "초기 수량을 입력해 주세요.";
+    } else if (!/^\d+$/.test(qtyRaw)) {
+      errors.initialQty = "초기 수량은 1 이상의 정수로 입력해 주세요.";
+    } else {
+      initialQty = Number(qtyRaw);
+      if (initialQty < 1) {
+        errors.initialQty = "초기 수량은 1 이상이어야 해요.";
       }
-    }
-    if (initialQty < 0) {
-      errors.initialQty = "수량은 0 이상의 정수로 입력해 주세요.";
     }
 
     setFormErrors(errors);
@@ -734,45 +741,54 @@ export default function NewProductPage() {
               style={{
                 display: "flex",
                 flexDirection: "column",
-                gap: "16px",
-                paddingBottom: "80px",
+                gap: "8px",
+                paddingBottom: "48px",
               }}
               onSubmit={handleSubmit}
             >
               <div style={photoSectionStyle}>
-                <div
-                  style={photoSlotStyle}
-                  role="button"
-                  tabIndex={0}
-                  aria-label="사진 선택"
+                <button
+                  type="button"
+                  style={
+                    isSubmitting
+                      ? { ...photoButtonStyle, ...photoButtonDisabledStyle }
+                      : photoButtonStyle
+                  }
+                  aria-label={photoPreviewUrl ? "사진 재촬영" : "사진 촬영"}
                   onClick={handlePhotoPick}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      handlePhotoPick();
-                    }
-                  }}
+                  disabled={isSubmitting}
                 >
-                  {photoPreviewUrl ? (
-                    <>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <span style={photoThumbStyle}>
+                    {photoPreviewUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={photoPreviewUrl}
                         alt="선택된 사진"
                         style={photoImageStyle}
                       />
-                      <span style={photoOverlayStyle}>
-                        <span style={photoOverlayIconStyle}>+</span>
-                        다시 촬영
-                      </span>
-                    </>
-                  ) : (
-                    <div style={photoPlaceholderStyle}>
-                      <span style={photoHintIconStyle}>+</span>
-                      <span style={photoHintTextStyle}>사진을 탭해 촬영</span>
-                    </div>
-                  )}
-                </div>
+                    ) : (
+                      <Image
+                        src={cameraIcon}
+                        alt=""
+                        width={20}
+                        height={20}
+                        aria-hidden="true"
+                        style={photoCameraIconStyle}
+                      />
+                    )}
+                  </span>
+                  <span style={photoTextGroupStyle}>
+                    <span style={photoPrimaryTextStyle}>
+                      {photoPreviewUrl ? "사진 재촬영" : "사진 촬영"}
+                    </span>
+                    <span style={photoSecondaryTextStyle}>
+                      {photoPreviewUrl ? "사진 등록됨" : "탭해서 카메라 열기"}
+                    </span>
+                  </span>
+                  <span style={photoActionIconStyle} aria-hidden="true">
+                    ›
+                  </span>
+                </button>
                 <input
                   ref={photoInputRef}
                   type="file"
@@ -784,72 +800,56 @@ export default function NewProductPage() {
                 {photoError ? <p style={errorTextStyle}>{photoError}</p> : null}
               </div>
 
-              <div style={requiredCardStyle}>
-                <div style={sectionHeaderStyle}>
-                  <h2 style={sectionTitleStyle}>필수 입력</h2>
-                </div>
-                <div style={fieldStyle}>
-                  <label htmlFor="product-name" style={labelStyle}>
-                    제품명
-                  </label>
-                  <input
-                    id="product-name"
-                    type="text"
-                    value={formState.name}
-                    onChange={(event) => updateField("name", event.currentTarget.value)}
-                    placeholder="제품명을 입력해 주세요"
-                    style={inputStyle}
-                  />
-                  {formErrors.name ? (
-                    <p style={helperTextStyle}>{formErrors.name}</p>
-                  ) : null}
+              <div style={formCardStyle}>
+                <div style={formSectionStyle}>
+                  <div style={fieldStyle}>
+                    <label htmlFor="product-name" style={labelStyle}>
+                      제품명
+                      <span style={requiredMarkStyle} aria-hidden="true">
+                        *
+                      </span>
+                    </label>
+                    <input
+                      id="product-name"
+                      type="text"
+                      value={formState.name}
+                      onChange={(event) => updateField("name", event.currentTarget.value)}
+                      placeholder="제품명을 입력해 주세요"
+                      style={formErrors.name ? { ...inputStyle, ...inputErrorStyle } : inputStyle}
+                    />
+                    {formErrors.name ? (
+                      <p style={fieldErrorTextStyle}>{formErrors.name}</p>
+                    ) : null}
+                  </div>
+
+                  <div style={fieldStyle}>
+                    <label htmlFor="product-zone" style={labelStyle}>
+                      구역
+                      <span style={requiredMarkStyle} aria-hidden="true">
+                        *
+                      </span>
+                    </label>
+                    <select
+                      id="product-zone"
+                      value={formState.zoneId}
+                      onChange={(event) => updateField("zoneId", event.currentTarget.value)}
+                      style={
+                        formErrors.zoneId ? { ...selectStyle, ...inputErrorStyle } : selectStyle
+                      }
+                    >
+                      <option value="">
+                        {hasZones ? "구역을 선택해 주세요" : "구역 정보 없음"}
+                      </option>
+                      {zoneOptions}
+                    </select>
+                    {formErrors.zoneId ? (
+                      <p style={fieldErrorTextStyle}>{formErrors.zoneId}</p>
+                    ) : null}
+                  </div>
                 </div>
 
-                <div style={fieldStyle}>
-                  <label htmlFor="product-zone" style={labelStyle}>
-                    구역
-                  </label>
-                  <select
-                    id="product-zone"
-                    value={formState.zoneId}
-                    onChange={(event) => updateField("zoneId", event.currentTarget.value)}
-                    style={selectStyle}
-                  >
-                    <option value="">
-                      {hasZones ? "구역을 선택해 주세요" : "구역 정보 없음"}
-                    </option>
-                    {zoneOptions}
-                  </select>
-                  {formErrors.zoneId ? (
-                    <p style={helperTextStyle}>{formErrors.zoneId}</p>
-                  ) : null}
-                </div>
-                <div style={fieldStyle}>
-                  <label htmlFor="product-initial" style={labelStyle}>
-                    초기 수량
-                  </label>
-                  <input
-                    id="product-initial"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={formState.initialQty}
-                    onChange={(event) =>
-                      updateField("initialQty", event.currentTarget.value)
-                    }
-                    placeholder="0"
-                    style={inputStyle}
-                  />
-                  {formErrors.initialQty ? (
-                    <p style={helperTextStyle}>{formErrors.initialQty}</p>
-                  ) : null}
-                </div>
-              </div>
+                <div style={sectionDividerStyle} />
 
-              <div style={optionalCardStyle}>
-                <div style={sectionHeaderStyle}>
-                  <h2 style={optionalSectionTitleStyle}>선택 입력</h2>
-                </div>
                 <div style={optionalGridStyle}>
                   <div style={gridFieldStyle}>
                     <label htmlFor="product-manufacturer" style={labelStyle}>
@@ -905,9 +905,7 @@ export default function NewProductPage() {
                       id="product-unit"
                       type="text"
                       value={formState.unit}
-                      onChange={(event) =>
-                        updateField("unit", event.currentTarget.value)
-                      }
+                      onChange={(event) => updateField("unit", event.currentTarget.value)}
                       placeholder="단위"
                       style={inputStyle}
                     />
@@ -921,12 +919,36 @@ export default function NewProductPage() {
                       id="product-expiry"
                       type="date"
                       value={formState.expiryDate}
-                      onChange={(event) =>
-                        updateField("expiryDate", event.currentTarget.value)
-                      }
+                      onChange={(event) => updateField("expiryDate", event.currentTarget.value)}
                       style={inputStyle}
                     />
                   </div>
+                </div>
+
+                <div style={sectionDividerStyle} />
+
+                <div style={fieldStyle}>
+                  <label htmlFor="product-initial" style={labelStyle}>
+                    초기 수량
+                    <span style={requiredMarkStyle} aria-hidden="true">
+                      *
+                    </span>
+                  </label>
+                  <input
+                    id="product-initial"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={formState.initialQty}
+                    onChange={(event) => updateField("initialQty", event.currentTarget.value)}
+                    placeholder="1 이상"
+                    style={
+                      formErrors.initialQty ? { ...inputStyle, ...inputErrorStyle } : inputStyle
+                    }
+                  />
+                  {formErrors.initialQty ? (
+                    <p style={fieldErrorTextStyle}>{formErrors.initialQty}</p>
+                  ) : null}
                 </div>
               </div>
 

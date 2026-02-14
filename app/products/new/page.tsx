@@ -5,6 +5,10 @@ import type { ChangeEvent, CSSProperties, FormEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { ko } from "date-fns/locale";
+import { DayPicker } from "react-day-picker";
+import type { Formatters, Styles } from "react-day-picker";
+import "react-day-picker/dist/style.css";
 import DelayedRender from "@/app/_components/DelayedRender";
 import cameraIcon from "@/asset/camera.png";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
@@ -39,17 +43,19 @@ type FormState = {
 type FormErrors = Partial<Record<keyof FormState, string>>;
 
 const pageStyle: CSSProperties = {
-  minHeight: "100vh",
+  minHeight: "100dvh",
   background: "#F9F8F6",
-  padding: "8px",
+  padding: "10px 8px 8px",
+  boxSizing: "border-box",
 };
 
 const containerStyle: CSSProperties = {
+  width: "100%",
   maxWidth: "720px",
   margin: "0 auto",
   display: "flex",
   flexDirection: "column",
-  gap: "8px",
+  gap: "10px",
 };
 
 const headerStyle: CSSProperties = {
@@ -67,45 +73,46 @@ const titleStyle: CSSProperties = {
 };
 
 const helperTextStyle: CSSProperties = {
-  fontSize: "14px",
+  fontSize: "15px",
   color: "#5A514B",
   margin: 0,
 };
 
 const cardStyle: CSSProperties = {
-  padding: "9px",
+  padding: "11px",
   borderRadius: "12px",
   border: "1px solid #E3DED8",
   background: "#FFFFFF",
   display: "flex",
   flexDirection: "column",
-  gap: "8px",
+  gap: "10px",
 };
 
 const formCardStyle: CSSProperties = {
   ...cardStyle,
-  gap: "9px",
+  gap: "10px",
 };
 
 const photoSectionStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "6px",
+  gap: "8px",
 };
 
 const photoButtonStyle: CSSProperties = {
   width: "100%",
-  minHeight: "58px",
+  minHeight: "70px",
   borderRadius: "12px",
-  border: "1px solid #D6D2CC",
-  background: "#FFFFFF",
+  border: "1px solid #CCC3B9",
+  background: "#FCFBF9",
   appearance: "none",
   display: "flex",
   alignItems: "center",
-  gap: "9px",
-  padding: "7px 9px",
+  gap: "12px",
+  padding: "10px 12px",
   cursor: "pointer",
   textAlign: "left",
+  boxShadow: "0 2px 10px rgba(40, 33, 29, 0.05)",
 };
 
 const photoButtonDisabledStyle: CSSProperties = {
@@ -114,8 +121,8 @@ const photoButtonDisabledStyle: CSSProperties = {
 };
 
 const photoThumbStyle: CSSProperties = {
-  width: "40px",
-  height: "40px",
+  width: "46px",
+  height: "46px",
   borderRadius: "10px",
   border: "1px solid #DDD6CE",
   background: "#F1EDE7",
@@ -134,35 +141,35 @@ const photoImageStyle: CSSProperties = {
 };
 
 const photoCameraIconStyle: CSSProperties = {
-  width: "20px",
-  height: "20px",
+  width: "22px",
+  height: "22px",
   objectFit: "contain",
 };
 
 const photoTextGroupStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "2px",
+  gap: "3px",
   flex: 1,
   minWidth: 0,
 };
 
 const photoPrimaryTextStyle: CSSProperties = {
-  fontSize: "14px",
+  fontSize: "16.5px",
   color: "#2E2A27",
   fontWeight: 700,
   margin: 0,
 };
 
 const photoSecondaryTextStyle: CSSProperties = {
-  fontSize: "12px",
+  fontSize: "14.5px",
   color: "#554E48",
   margin: 0,
 };
 
 const photoActionIconStyle: CSSProperties = {
-  width: "22px",
-  height: "22px",
+  width: "26px",
+  height: "26px",
   borderRadius: "999px",
   border: "1px solid #DDD6CE",
   background: "#F8F4EE",
@@ -176,7 +183,7 @@ const photoActionIconStyle: CSSProperties = {
 const formSectionStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "7px",
+  gap: "8px",
 };
 
 const sectionTitleStyle: CSSProperties = {
@@ -190,14 +197,19 @@ const sectionDividerStyle: CSSProperties = {
   margin: "0",
 };
 
+const sectionDividerSpaciousStyle: CSSProperties = {
+  ...sectionDividerStyle,
+  margin: "5px 0 7px",
+};
+
 const fieldStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "4px",
+  gap: "5px",
 };
 
 const labelStyle: CSSProperties = {
-  fontSize: "12px",
+  fontSize: "14px",
   color: "#2E2A27",
   margin: 0,
   fontWeight: 600,
@@ -209,12 +221,14 @@ const requiredMarkStyle: CSSProperties = {
 };
 
 const inputStyle: CSSProperties = {
-  minHeight: "44px",
-  padding: "0 10px",
+  minHeight: "48px",
+  padding: "0 12px",
   borderRadius: "10px",
   border: "1px solid #D6D2CC",
-  fontSize: "14px",
+  fontSize: "16px",
   background: "#FFFFFF",
+  width: "100%",
+  boxSizing: "border-box",
 };
 
 const inputErrorStyle: CSSProperties = {
@@ -227,9 +241,140 @@ const selectStyle: CSSProperties = {
 };
 
 const fieldErrorTextStyle: CSSProperties = {
-  fontSize: "12px",
+  fontSize: "13.5px",
   color: "#B42318",
   margin: 0,
+};
+
+const dateInputRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+};
+
+const dateInputStyle: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+};
+
+const dateToggleButtonStyle: CSSProperties = {
+  width: "40px",
+  height: "40px",
+  borderRadius: "8px",
+  border: "1px solid #D6D2CC",
+  background: "#F8F4EE",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  flexShrink: 0,
+  padding: 0,
+};
+
+const dateToggleButtonActiveStyle: CSSProperties = {
+  background: "#EFE9E2",
+  border: "1px solid #CFC8C1",
+};
+
+const calendarIconStyle: CSSProperties = {
+  width: "22px",
+  height: "22px",
+  color: "#3F3935",
+};
+
+const calendarPopoverStyle: CSSProperties = {
+  position: "absolute",
+  bottom: "calc(100% + 8px)",
+  left: "50%",
+  transform: "translateX(-50%)",
+  zIndex: 40,
+  border: "1px solid #E3DED8",
+  borderRadius: "12px",
+  background: "#FFFFFF",
+  boxShadow: "0 10px 30px rgba(30, 24, 20, 0.12)",
+  padding: "10px",
+  width: "max-content",
+  maxWidth: "min(92vw, 340px)",
+};
+
+const dayPickerStyles: Partial<Styles> = {
+  month_caption: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: "8px",
+  },
+  dropdowns: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+  dropdown_root: {
+    position: "relative",
+  },
+  dropdown: {
+    height: "34px",
+    borderRadius: "8px",
+    border: "1px solid #D6D2CC",
+    background: "#FFFFFF",
+    color: "#2E2A27",
+    padding: "0 24px 0 8px",
+    fontSize: "14px",
+    fontWeight: 600,
+  },
+  months_dropdown: {
+    minWidth: "74px",
+  },
+  years_dropdown: {
+    minWidth: "92px",
+  },
+  chevron: {
+    width: "14px",
+    height: "14px",
+    color: "#5A514B",
+  },
+  weekday: {
+    fontSize: "13.5px",
+    fontWeight: 600,
+    color: "#6C645F",
+    textAlign: "center",
+    width: "34px",
+    height: "24px",
+  },
+  day_button: {
+    width: "36px",
+    height: "36px",
+    fontSize: "14.5px",
+    borderRadius: "10px",
+    color: "#2E2A27",
+  },
+  selected: {
+    background: "#2E2A27",
+    color: "#FFFFFF",
+    fontWeight: 700,
+  },
+  today: {
+    border: "1px solid #A89D92",
+  },
+  button_previous: {
+    width: "30px",
+    height: "30px",
+    borderRadius: "8px",
+  },
+  button_next: {
+    width: "30px",
+    height: "30px",
+    borderRadius: "8px",
+  },
+};
+
+const KOREAN_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
+
+const dayPickerFormatters: Partial<Formatters> = {
+  formatCaption: (month: Date) => `${month.getFullYear()}년 ${month.getMonth() + 1}월`,
+  formatWeekdayName: (weekday: Date) => KOREAN_WEEKDAYS[weekday.getDay()],
+  formatMonthDropdown: (month: Date) => `${month.getMonth() + 1}월`,
+  formatYearDropdown: (year: Date) => `${year.getFullYear()}년`,
 };
 
 const gridFieldStyle: CSSProperties = {
@@ -240,17 +385,17 @@ const gridFieldStyle: CSSProperties = {
 const optionalGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: "7px",
+  gap: "9px",
 };
 
 const buttonStyle: CSSProperties = {
-  minHeight: "44px",
+  minHeight: "50px",
   padding: "0 16px",
   borderRadius: "10px",
   border: "none",
   background: "#2E2A27",
   color: "#FFFFFF",
-  fontSize: "15px",
+  fontSize: "17px",
   fontWeight: 600,
   cursor: "pointer",
 };
@@ -274,11 +419,8 @@ const buttonRowStyle: CSSProperties = {
 };
 
 const stickyBarStyle: CSSProperties = {
-  position: "sticky",
-  bottom: "0",
-  background: "#F9F8F6",
-  padding: "6px 0 8px",
-  borderTop: "1px solid #E3DED8",
+  marginTop: "8px",
+  paddingTop: "2px",
 };
 
 const stickyButtonStyle: CSSProperties = {
@@ -359,6 +501,46 @@ function normalizeOptional(value: string) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function formatDateToIso(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseIsoDate(value: string) {
+  if (!ISO_DATE_PATTERN.test(value)) {
+    return null;
+  }
+  const [yearRaw, monthRaw, dayRaw] = value.split("-");
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
+  const parsed = new Date(year, month - 1, day);
+
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+  return parsed;
+}
+
+function normalizeDateInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 4) {
+    return digits;
+  }
+  if (digits.length <= 6) {
+    return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  }
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
+}
+
 export default function NewProductPage() {
   const router = useRouter();
   const [authState, setAuthState] = useState<AuthState>("checking");
@@ -376,6 +558,9 @@ export default function NewProductPage() {
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const expiryFieldRef = useRef<HTMLDivElement | null>(null);
+  const [isExpiryCalendarOpen, setIsExpiryCalendarOpen] = useState(false);
+  const [expiryCalendarMonth, setExpiryCalendarMonth] = useState(() => new Date());
 
   useEffect(() => {
     let cancelled = false;
@@ -495,6 +680,11 @@ export default function NewProductPage() {
     [zones]
   );
 
+  const selectedExpiryDate = useMemo(
+    () => parseIsoDate(formState.expiryDate),
+    [formState.expiryDate]
+  );
+
   useEffect(() => {
     return () => {
       if (photoPreviewUrl) {
@@ -503,8 +693,69 @@ export default function NewProductPage() {
     };
   }, [photoPreviewUrl]);
 
+  useEffect(() => {
+    if (!isExpiryCalendarOpen) {
+      return;
+    }
+
+    const handleDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (expiryFieldRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsExpiryCalendarOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+    };
+  }, [isExpiryCalendarOpen]);
+
   const updateField = (field: keyof FormState, value: string) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const clearFieldError = (field: keyof FormState) => {
+    setFormErrors((prev) => {
+      if (!prev[field]) {
+        return prev;
+      }
+
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const handleExpiryDateChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const normalized = normalizeDateInput(event.currentTarget.value);
+    updateField("expiryDate", normalized);
+    clearFieldError("expiryDate");
+
+    const parsed = parseIsoDate(normalized);
+    if (parsed) {
+      setExpiryCalendarMonth(parsed);
+    }
+  };
+
+  const handleExpiryDateSelect = (date: Date | undefined) => {
+    if (!date) {
+      updateField("expiryDate", "");
+      clearFieldError("expiryDate");
+      setIsExpiryCalendarOpen(false);
+      return;
+    }
+
+    updateField("expiryDate", formatDateToIso(date));
+    clearFieldError("expiryDate");
+    setExpiryCalendarMonth(date);
+    setIsExpiryCalendarOpen(false);
   };
 
   const handlePhotoPick = () => {
@@ -549,6 +800,10 @@ export default function NewProductPage() {
     if (!formState.zoneId) {
       errors.zoneId = "구역을 선택해 주세요.";
     }
+    const trimmedExpiryDate = formState.expiryDate.trim();
+    if (trimmedExpiryDate !== "" && !parseIsoDate(trimmedExpiryDate)) {
+      errors.expiryDate = "유통기한은 YYYY-MM-DD 형식으로 입력해 주세요.";
+    }
 
     let initialQty = 0;
     const qtyRaw = formState.initialQty.trim();
@@ -580,7 +835,7 @@ export default function NewProductPage() {
       unit: normalizeOptional(formState.unit),
       spec: normalizeOptional(formState.spec),
       origin_country: normalizeOptional(formState.originCountry),
-      expiry_date: normalizeOptional(formState.expiryDate),
+      expiry_date: normalizeOptional(trimmedExpiryDate),
       active: true,
     };
 
@@ -741,8 +996,7 @@ export default function NewProductPage() {
               style={{
                 display: "flex",
                 flexDirection: "column",
-                gap: "8px",
-                paddingBottom: "48px",
+                gap: "10px",
               }}
               onSubmit={handleSubmit}
             >
@@ -848,7 +1102,7 @@ export default function NewProductPage() {
                   </div>
                 </div>
 
-                <div style={sectionDividerStyle} />
+                <div style={sectionDividerSpaciousStyle} />
 
                 <div style={optionalGridStyle}>
                   <div style={gridFieldStyle}>
@@ -911,17 +1165,87 @@ export default function NewProductPage() {
                     />
                   </div>
 
-                  <div style={{ ...gridFieldStyle, gridColumn: "1 / -1" }}>
+                  <div
+                    ref={expiryFieldRef}
+                    style={{ ...gridFieldStyle, gridColumn: "1 / -1", position: "relative" }}
+                  >
                     <label htmlFor="product-expiry" style={labelStyle}>
                       유통기한
                     </label>
-                    <input
-                      id="product-expiry"
-                      type="date"
-                      value={formState.expiryDate}
-                      onChange={(event) => updateField("expiryDate", event.currentTarget.value)}
-                      style={inputStyle}
-                    />
+                    <div style={dateInputRowStyle}>
+                      <input
+                        id="product-expiry"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="YYYY-MM-DD"
+                        value={formState.expiryDate}
+                        onChange={handleExpiryDateChange}
+                        style={
+                          formErrors.expiryDate
+                            ? { ...inputStyle, ...dateInputStyle, ...inputErrorStyle }
+                            : { ...inputStyle, ...dateInputStyle }
+                        }
+                      />
+                      <button
+                        type="button"
+                        aria-label="달력 열기"
+                        aria-expanded={isExpiryCalendarOpen}
+                        style={
+                          isExpiryCalendarOpen
+                            ? { ...dateToggleButtonStyle, ...dateToggleButtonActiveStyle }
+                            : dateToggleButtonStyle
+                        }
+                        onClick={() => {
+                          if (isExpiryCalendarOpen) {
+                            setIsExpiryCalendarOpen(false);
+                            return;
+                          }
+
+                          setExpiryCalendarMonth(selectedExpiryDate ?? new Date());
+                          setIsExpiryCalendarOpen(true);
+                        }}
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          style={calendarIconStyle}
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M7 3V6M17 3V6M4 10H20M6 21H18C19.1 21 20 20.1 20 19V7C20 5.9 19.1 5 18 5H6C4.9 5 4 5.9 4 7V19C4 20.1 4.9 21 6 21Z"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    {formErrors.expiryDate ? (
+                      <p style={fieldErrorTextStyle}>{formErrors.expiryDate}</p>
+                    ) : null}
+                    {isExpiryCalendarOpen ? (
+                      <div style={calendarPopoverStyle}>
+                        <DayPicker
+                          mode="single"
+                          selected={selectedExpiryDate ?? undefined}
+                          onSelect={handleExpiryDateSelect}
+                          month={expiryCalendarMonth}
+                          onMonthChange={setExpiryCalendarMonth}
+                          locale={ko}
+                          weekStartsOn={0}
+                          captionLayout="dropdown"
+                          startMonth={new Date(2015, 0)}
+                          endMonth={new Date(2035, 11)}
+                          reverseYears
+                          navLayout="after"
+                          formatters={dayPickerFormatters}
+                          showOutsideDays
+                          styles={dayPickerStyles}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 

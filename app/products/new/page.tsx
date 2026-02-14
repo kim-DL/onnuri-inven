@@ -66,7 +66,7 @@ const headerStyle: CSSProperties = {
 };
 
 const titleStyle: CSSProperties = {
-  fontSize: "22px",
+  fontSize: "20px",
   fontWeight: 700,
   lineHeight: 1.2,
   margin: 0,
@@ -229,6 +229,11 @@ const inputStyle: CSSProperties = {
   background: "#FFFFFF",
   width: "100%",
   boxSizing: "border-box",
+};
+
+const inputErrorStyle: CSSProperties = {
+  border: "1px solid #D14343",
+  background: "#FFF7F7",
 };
 
 const inputErrorStyle: CSSProperties = {

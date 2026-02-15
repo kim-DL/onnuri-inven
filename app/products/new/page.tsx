@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, CSSProperties, FormEvent } from "react";
@@ -11,6 +11,8 @@ import type { Formatters, Styles } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import DelayedRender from "@/app/_components/DelayedRender";
 import cameraIcon from "@/asset/camera.png";
+import calcIcon from "@/asset/calc.png";
+import calendarIcon from "@/asset/Calendar.png";
 import { getSessionUser, getUserProfile, signOut } from "@/lib/auth";
 import {
   buildProductPhotoPath,
@@ -141,9 +143,12 @@ const photoImageStyle: CSSProperties = {
 };
 
 const photoCameraIconStyle: CSSProperties = {
-  width: "22px",
-  height: "22px",
+  width: "28px",
+  height: "28px",
   objectFit: "contain",
+  transform: "scale(1.35)",
+  transformOrigin: "center",
+  display: "block",
 };
 
 const photoTextGroupStyle: CSSProperties = {
@@ -258,9 +263,9 @@ const dateInputStyle: CSSProperties = {
 };
 
 const dateToggleButtonStyle: CSSProperties = {
-  width: "40px",
-  height: "40px",
-  borderRadius: "8px",
+  width: "44px",
+  height: "44px",
+  borderRadius: "10px",
   border: "1px solid #D6D2CC",
   background: "#F8F4EE",
   display: "flex",
@@ -277,9 +282,19 @@ const dateToggleButtonActiveStyle: CSSProperties = {
 };
 
 const calendarIconStyle: CSSProperties = {
-  width: "22px",
-  height: "22px",
-  color: "#3F3935",
+  width: "34px",
+  height: "34px",
+  objectFit: "contain",
+  display: "block",
+};
+
+const calcIconStyle: CSSProperties = {
+  width: "24px",
+  height: "24px",
+  objectFit: "contain",
+  transform: "scale(1.45)",
+  transformOrigin: "center",
+  display: "block",
 };
 
 const calendarPopoverStyle: CSSProperties = {
@@ -295,6 +310,131 @@ const calendarPopoverStyle: CSSProperties = {
   padding: "10px",
   width: "max-content",
   maxWidth: "min(92vw, 340px)",
+};
+
+const quantityInputAppliedStyle: CSSProperties = {
+  border: "1px solid #95877A",
+  background: "#FEFCF8",
+  boxShadow: "0 0 0 2px rgba(149, 135, 122, 0.2)",
+};
+
+const quantitySheetOverlayStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(46, 42, 39, 0.35)",
+  display: "flex",
+  alignItems: "flex-end",
+  justifyContent: "center",
+  zIndex: 60,
+};
+
+const quantitySheetPanelStyle: CSSProperties = {
+  width: "100%",
+  maxWidth: "720px",
+  borderRadius: "16px 16px 0 0",
+  borderTop: "1px solid #E3DED8",
+  borderLeft: "1px solid #E3DED8",
+  borderRight: "1px solid #E3DED8",
+  background: "#FFFFFF",
+  padding: "16px",
+  paddingBottom: "max(16px, env(safe-area-inset-bottom))",
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
+  maxHeight: "85vh",
+};
+
+const quantitySheetHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "8px",
+};
+
+const quantitySheetTitleStyle: CSSProperties = {
+  fontSize: "18px",
+  fontWeight: 700,
+  margin: 0,
+  color: "#2E2A27",
+};
+
+const quantitySheetCloseButtonStyle: CSSProperties = {
+  minHeight: "44px",
+  minWidth: "44px",
+  borderRadius: "10px",
+  border: "1px solid #D6D2CC",
+  background: "#FFFFFF",
+  color: "#2E2A27",
+  fontSize: "14px",
+  fontWeight: 600,
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+};
+
+const quantitySheetBodyStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "10px",
+  minHeight: 0,
+  overflowY: "auto",
+};
+
+const quantitySheetFieldStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "5px",
+};
+
+const quantitySheetResultCardStyle: CSSProperties = {
+  borderRadius: "10px",
+  border: "1px solid #E8E2DB",
+  background: "#FCFBF9",
+  padding: "10px 12px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "8px",
+};
+
+const quantitySheetResultLabelStyle: CSSProperties = {
+  fontSize: "14px",
+  fontWeight: 600,
+  color: "#5A514B",
+  margin: 0,
+};
+
+const quantitySheetResultValueStyle: CSSProperties = {
+  fontSize: "22px",
+  fontWeight: 700,
+  color: "#2E2A27",
+  margin: 0,
+  lineHeight: 1,
+};
+
+const quantitySheetFooterStyle: CSSProperties = {
+  borderTop: "1px solid #E8E2DB",
+  paddingTop: "12px",
+};
+
+const quantitySheetApplyButtonStyle: CSSProperties = {
+  minHeight: "48px",
+  padding: "0 16px",
+  borderRadius: "10px",
+  border: "none",
+  background: "#2E2A27",
+  color: "#FFFFFF",
+  fontSize: "17px",
+  fontWeight: 600,
+  cursor: "pointer",
+  width: "100%",
+};
+
+const quantitySheetApplyButtonDisabledStyle: CSSProperties = {
+  opacity: 0.55,
+  cursor: "not-allowed",
 };
 
 const dayPickerStyles: Partial<Styles> = {
@@ -541,6 +681,22 @@ function normalizeDateInput(value: string) {
   return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
 }
 
+function normalizeNumericInput(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function parseRequiredNumericInput(value: string) {
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    return null;
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return null;
+  }
+  return parsed;
+}
+
 export default function NewProductPage() {
   const router = useRouter();
   const [authState, setAuthState] = useState<AuthState>("checking");
@@ -561,6 +717,14 @@ export default function NewProductPage() {
   const expiryFieldRef = useRef<HTMLDivElement | null>(null);
   const [isExpiryCalendarOpen, setIsExpiryCalendarOpen] = useState(false);
   const [expiryCalendarMonth, setExpiryCalendarMonth] = useState(() => new Date());
+  const [isQuantitySheetOpen, setIsQuantitySheetOpen] = useState(false);
+  const [calcUnitsPerBox, setCalcUnitsPerBox] = useState("");
+  const [calcBoxCount, setCalcBoxCount] = useState("");
+  const [calcExtraUnits, setCalcExtraUnits] = useState("");
+  const [isInitialQtyApplied, setIsInitialQtyApplied] = useState(false);
+  const calcUnitsInputRef = useRef<HTMLInputElement | null>(null);
+  const calcBoxInputRef = useRef<HTMLInputElement | null>(null);
+  const calcExtraInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -685,6 +849,27 @@ export default function NewProductPage() {
     [formState.expiryDate]
   );
 
+  const calcUnitsValue = useMemo(
+    () => parseRequiredNumericInput(calcUnitsPerBox),
+    [calcUnitsPerBox]
+  );
+  const calcBoxValue = useMemo(
+    () => parseRequiredNumericInput(calcBoxCount),
+    [calcBoxCount]
+  );
+  const calcExtraValue = useMemo(() => {
+    const parsed = parseRequiredNumericInput(calcExtraUnits);
+    return parsed ?? 0;
+  }, [calcExtraUnits]);
+  const calculatedInitialQty = useMemo(() => {
+    if (calcUnitsValue === null || calcBoxValue === null) {
+      return 0;
+    }
+    return calcUnitsValue * calcBoxValue + calcExtraValue;
+  }, [calcBoxValue, calcExtraValue, calcUnitsValue]);
+  const isCalculatedQtyApplicable =
+    calcUnitsValue !== null && calcBoxValue !== null && calculatedInitialQty > 0;
+
   useEffect(() => {
     return () => {
       if (photoPreviewUrl) {
@@ -716,6 +901,42 @@ export default function NewProductPage() {
       document.removeEventListener("mousedown", handleDocumentMouseDown);
     };
   }, [isExpiryCalendarOpen]);
+
+  useEffect(() => {
+    if (!isQuantitySheetOpen) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      calcUnitsInputRef.current?.focus();
+    }, 30);
+
+    const handleEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsQuantitySheetOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isQuantitySheetOpen]);
+
+  useEffect(() => {
+    if (!isInitialQtyApplied) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setIsInitialQtyApplied(false);
+    }, 900);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [isInitialQtyApplied]);
 
   const updateField = (field: keyof FormState, value: string) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
@@ -783,6 +1004,30 @@ export default function NewProductPage() {
     setPhotoFile(file);
     setPhotoPreviewUrl(nextUrl);
     setPhotoError(null);
+  };
+
+  const openQuantitySheet = () => {
+    if (isSubmitting) {
+      return;
+    }
+    setCalcUnitsPerBox("");
+    setCalcBoxCount("");
+    setCalcExtraUnits("");
+    setIsQuantitySheetOpen(true);
+  };
+
+  const closeQuantitySheet = () => {
+    setIsQuantitySheetOpen(false);
+  };
+
+  const handleApplyCalculatedQty = () => {
+    if (!isCalculatedQtyApplicable) {
+      return;
+    }
+    updateField("initialQty", String(calculatedInitialQty));
+    clearFieldError("initialQty");
+    setIsInitialQtyApplied(true);
+    setIsQuantitySheetOpen(false);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -921,6 +1166,11 @@ export default function NewProductPage() {
     setPhotoFile(null);
     setPhotoPreviewUrl(null);
     setPhotoError(null);
+    setIsQuantitySheetOpen(false);
+    setCalcUnitsPerBox("");
+    setCalcBoxCount("");
+    setCalcExtraUnits("");
+    setIsInitialQtyApplied(false);
   };
 
   const handleLogout = async () => {
@@ -1024,8 +1274,8 @@ export default function NewProductPage() {
                       <Image
                         src={cameraIcon}
                         alt=""
-                        width={20}
-                        height={20}
+                        width={28}
+                        height={28}
                         aria-hidden="true"
                         style={photoCameraIconStyle}
                       />
@@ -1205,21 +1455,14 @@ export default function NewProductPage() {
                           setIsExpiryCalendarOpen(true);
                         }}
                       >
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                          style={calendarIconStyle}
+                        <Image
+                          src={calendarIcon}
+                          alt=""
+                          width={34}
+                          height={34}
                           aria-hidden="true"
-                        >
-                          <path
-                            d="M7 3V6M17 3V6M4 10H20M6 21H18C19.1 21 20 20.1 20 19V7C20 5.9 19.1 5 18 5H6C4.9 5 4 5.9 4 7V19C4 20.1 4.9 21 6 21Z"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
+                          style={calendarIconStyle}
+                        />
                       </button>
                     </div>
                     {formErrors.expiryDate ? (
@@ -1258,18 +1501,62 @@ export default function NewProductPage() {
                       *
                     </span>
                   </label>
-                  <input
-                    id="product-initial"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={formState.initialQty}
-                    onChange={(event) => updateField("initialQty", event.currentTarget.value)}
-                    placeholder="1 이상"
-                    style={
-                      formErrors.initialQty ? { ...inputStyle, ...inputErrorStyle } : inputStyle
-                    }
-                  />
+                  <div style={dateInputRowStyle}>
+                    <input
+                      id="product-initial"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={formState.initialQty}
+                      onChange={(event) => {
+                        updateField(
+                          "initialQty",
+                          normalizeNumericInput(event.currentTarget.value)
+                        );
+                        if (formErrors.initialQty) {
+                          clearFieldError("initialQty");
+                        }
+                        if (isInitialQtyApplied) {
+                          setIsInitialQtyApplied(false);
+                        }
+                      }}
+                      placeholder="1 이상"
+                      style={
+                        formErrors.initialQty
+                          ? { ...inputStyle, ...dateInputStyle, ...inputErrorStyle }
+                          : isInitialQtyApplied
+                            ? {
+                                ...inputStyle,
+                                ...dateInputStyle,
+                                ...quantityInputAppliedStyle,
+                              }
+                            : { ...inputStyle, ...dateInputStyle }
+                      }
+                    />
+                    <button
+                      type="button"
+                      aria-label="수량 계산기 열기"
+                      aria-expanded={isQuantitySheetOpen}
+                      onClick={openQuantitySheet}
+                      disabled={isSubmitting}
+                      style={
+                        isQuantitySheetOpen
+                          ? { ...dateToggleButtonStyle, ...dateToggleButtonActiveStyle }
+                          : isSubmitting
+                            ? { ...dateToggleButtonStyle, opacity: 0.6, cursor: "default" }
+                            : dateToggleButtonStyle
+                      }
+                    >
+                      <Image
+                        src={calcIcon}
+                        alt=""
+                        width={24}
+                        height={24}
+                        aria-hidden="true"
+                        style={calcIconStyle}
+                      />
+                    </button>
+                  </div>
                   {formErrors.initialQty ? (
                     <p style={fieldErrorTextStyle}>{formErrors.initialQty}</p>
                   ) : null}
@@ -1292,6 +1579,146 @@ export default function NewProductPage() {
                 </button>
               </div>
             </form>
+            {isQuantitySheetOpen ? (
+              <div
+                style={quantitySheetOverlayStyle}
+                onClick={closeQuantitySheet}
+                role="presentation"
+              >
+                <div
+                  style={quantitySheetPanelStyle}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="quantity-sheet-title"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div style={quantitySheetHeaderStyle}>
+                    <h2 id="quantity-sheet-title" style={quantitySheetTitleStyle}>
+                      수량 계산
+                    </h2>
+                    <button
+                      type="button"
+                      style={quantitySheetCloseButtonStyle}
+                      onClick={closeQuantitySheet}
+                      aria-label="수량 계산 닫기"
+                    >
+                      닫기
+                    </button>
+                  </div>
+
+                  <div style={quantitySheetBodyStyle}>
+                    <div style={quantitySheetFieldStyle}>
+                      <label htmlFor="calc-units-per-box" style={labelStyle}>
+                        입수량(한 박스당)
+                        <span style={requiredMarkStyle} aria-hidden="true">
+                          *
+                        </span>
+                      </label>
+                      <input
+                        ref={calcUnitsInputRef}
+                        id="calc-units-per-box"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={calcUnitsPerBox}
+                        onChange={(event) =>
+                          setCalcUnitsPerBox(normalizeNumericInput(event.currentTarget.value))
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter") {
+                            return;
+                          }
+                          event.preventDefault();
+                          calcBoxInputRef.current?.focus();
+                        }}
+                        placeholder="예: 12"
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div style={quantitySheetFieldStyle}>
+                      <label htmlFor="calc-box-count" style={labelStyle}>
+                        박스 수
+                        <span style={requiredMarkStyle} aria-hidden="true">
+                          *
+                        </span>
+                      </label>
+                      <input
+                        ref={calcBoxInputRef}
+                        id="calc-box-count"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={calcBoxCount}
+                        onChange={(event) =>
+                          setCalcBoxCount(normalizeNumericInput(event.currentTarget.value))
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter") {
+                            return;
+                          }
+                          event.preventDefault();
+                          calcExtraInputRef.current?.focus();
+                        }}
+                        placeholder="예: 4"
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div style={quantitySheetFieldStyle}>
+                      <label htmlFor="calc-extra-units" style={labelStyle}>
+                        추가 낱봉/낱개
+                      </label>
+                      <input
+                        ref={calcExtraInputRef}
+                        id="calc-extra-units"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={calcExtraUnits}
+                        onChange={(event) =>
+                          setCalcExtraUnits(normalizeNumericInput(event.currentTarget.value))
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter") {
+                            return;
+                          }
+                          event.preventDefault();
+                          if (isCalculatedQtyApplicable) {
+                            handleApplyCalculatedQty();
+                          }
+                        }}
+                        placeholder="없으면 비워두기"
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div style={quantitySheetResultCardStyle}>
+                      <p style={quantitySheetResultLabelStyle}>총 수량</p>
+                      <p style={quantitySheetResultValueStyle}>{calculatedInitialQty}</p>
+                    </div>
+                  </div>
+
+                  <div style={quantitySheetFooterStyle}>
+                    <button
+                      type="button"
+                      style={
+                        isCalculatedQtyApplicable
+                          ? quantitySheetApplyButtonStyle
+                          : {
+                              ...quantitySheetApplyButtonStyle,
+                              ...quantitySheetApplyButtonDisabledStyle,
+                            }
+                      }
+                      onClick={handleApplyCalculatedQty}
+                      disabled={!isCalculatedQtyApplicable}
+                    >
+                      적용
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </>
         )}
       </div>

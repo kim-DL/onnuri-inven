@@ -255,6 +255,63 @@ body {
   outline-offset: 3px;
 }
 
+.productsMenuButton {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.productsMenuButton:focus-visible {
+  outline: 2px solid rgba(30, 42, 68, 0.35);
+  outline-offset: 3px;
+}
+
+.productsHamburgerGlyph {
+  width: 20px;
+  height: 16px;
+  position: relative;
+  display: inline-block;
+}
+
+.productsHamburgerBar {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2.5px;
+  border-radius: 999px;
+  background: #2e2a27;
+  transform-origin: center;
+  transition:
+    transform 260ms cubic-bezier(0.4, 0, 0.2, 1),
+    top 260ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 200ms ease;
+}
+
+.productsHamburgerBar--top {
+  top: 0;
+}
+
+.productsHamburgerBar--middle {
+  top: 6.75px;
+}
+
+.productsHamburgerBar--bottom {
+  top: 13.5px;
+}
+
+.productsMenuButton--open .productsHamburgerBar--top {
+  top: 6.75px;
+  transform: rotate(45deg);
+}
+
+.productsMenuButton--open .productsHamburgerBar--middle {
+  opacity: 0;
+}
+
+.productsMenuButton--open .productsHamburgerBar--bottom {
+  top: 6.75px;
+  transform: rotate(-45deg);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fabAddProduct {
     transition: none;
@@ -269,6 +326,10 @@ body {
   .productsExpirySwitch__circle,
   .productsExpirySwitch__cross,
   .productsExpirySwitch__checkmark {
+    transition: none;
+  }
+
+  .productsHamburgerBar {
     transition: none;
   }
 }

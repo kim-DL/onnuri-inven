@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CompositionEvent, CSSProperties, FormEvent } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import DelayedRender from "@/app/_components/DelayedRender";
+import pagelistIcon from "@/asset/pagelist.svg";
 import { resolveProductPhotoUrl } from "@/lib/productPhoto";
 import { useExpiryWarningDays } from "@/lib/useExpiryWarningDays";
 import {
@@ -31,6 +33,19 @@ const titleStyle: CSSProperties = {
   margin: 0,
 };
 
+const headerTitleRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  paddingLeft: "4px",
+};
+
+const headerTitleIconStyle: CSSProperties = {
+  width: "24px",
+  height: "24px",
+  flexShrink: 0,
+};
+
 const headerBarStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -42,6 +57,7 @@ const headerActionRowStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: "8px",
+  paddingRight: "4px",
 };
 
 const menuWrapperStyle: CSSProperties = {
@@ -51,12 +67,11 @@ const menuWrapperStyle: CSSProperties = {
 const menuButtonStyle: CSSProperties = {
   minHeight: "44px",
   width: "44px",
+  padding: 0,
   borderRadius: "10px",
   border: "1px solid #D6D2CC",
   background: "#FFFFFF",
   color: "#2E2A27",
-  fontSize: "20px",
-  fontWeight: 700,
   cursor: "pointer",
   display: "inline-flex",
   alignItems: "center",
@@ -935,17 +950,31 @@ export default function ProductsPage() {
     <div className="min-h-screen bg-[#F9F8F6]" style={pageContainerStyle}>
       <div className="mx-auto flex max-w-[720px] flex-col" style={pageInnerStyle}>
         <header style={headerBarStyle}>
-          <h1 style={titleStyle}>상품 목록</h1>
+          <div style={headerTitleRowStyle}>
+            <Image
+              src={pagelistIcon}
+              alt=""
+              aria-hidden="true"
+              style={headerTitleIconStyle}
+            />
+            <h1 style={titleStyle}>상품 목록</h1>
+          </div>
           {authState !== "blocked" ? (
             <div style={headerActionRowStyle}>
               <div style={menuWrapperStyle}>
                 <button
                   type="button"
+                  className={isMenuOpen ? "productsMenuButton productsMenuButton--open" : "productsMenuButton"}
                   style={menuButtonStyle}
                   aria-label="메뉴 열기"
+                  aria-expanded={isMenuOpen}
                   onClick={() => setIsMenuOpen((prev) => !prev)}
                 >
-                  ☰
+                  <span className="productsHamburgerGlyph" aria-hidden="true">
+                    <span className="productsHamburgerBar productsHamburgerBar--top" />
+                    <span className="productsHamburgerBar productsHamburgerBar--middle" />
+                    <span className="productsHamburgerBar productsHamburgerBar--bottom" />
+                  </span>
                 </button>
                 {isMenuOpen ? (
                   <>

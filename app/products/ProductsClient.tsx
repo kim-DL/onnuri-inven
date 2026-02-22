@@ -7,7 +7,7 @@ import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import DelayedRender from "@/app/_components/DelayedRender";
-import pagelistIcon from "@/asset/pagelist.svg";
+import pageListIcon from "@/asset/page_v1.svg";
 import { resolveProductPhotoUrl } from "@/lib/productPhoto";
 import { useExpiryWarningDays } from "@/lib/useExpiryWarningDays";
 import {
@@ -41,8 +41,8 @@ const headerTitleRowStyle: CSSProperties = {
 };
 
 const headerTitleIconStyle: CSSProperties = {
-  width: "24px",
-  height: "24px",
+  width: "32px",
+  height: "32px",
   flexShrink: 0,
 };
 
@@ -57,7 +57,7 @@ const headerActionRowStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: "8px",
-  paddingRight: "4px",
+  paddingRight: "8px",
 };
 
 const menuWrapperStyle: CSSProperties = {
@@ -952,7 +952,7 @@ export default function ProductsPage() {
         <header style={headerBarStyle}>
           <div style={headerTitleRowStyle}>
             <Image
-              src={pagelistIcon}
+              src={pageListIcon}
               alt=""
               aria-hidden="true"
               style={headerTitleIconStyle}

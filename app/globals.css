@@ -112,12 +112,163 @@ body {
   outline-offset: 3px;
 }
 
+.productsExpiryToggle {
+  position: relative;
+  min-height: 44px;
+  width: 72px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  padding-top: 12px;
+  cursor: pointer;
+  color: #5a514b;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.productsExpiryToggle__text {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-align: center;
+  pointer-events: none;
+}
+
+.productsExpirySwitch {
+  --switch-width: 46px;
+  --switch-height: 24px;
+  --switch-bg: rgb(131, 131, 131);
+  --switch-checked-bg: rgb(0, 218, 80);
+  --switch-circle-diameter: 18px;
+  --switch-offset: calc((var(--switch-height) - var(--switch-circle-diameter)) / 2);
+  --switch-transition: all 0.2s cubic-bezier(0.27, 0.2, 0.25, 1.51);
+  --switch-circle-bg: #fff;
+  --switch-circle-shadow: 1px 1px 2px rgba(146, 146, 146, 0.45);
+  --switch-circle-checked-shadow: -1px 1px 2px rgba(163, 163, 163, 0.45);
+  --switch-effect-width: calc(var(--switch-circle-diameter) / 2);
+  --switch-effect-height: calc(var(--switch-effect-width) / 2 - 1px);
+  --switch-effect-radius: 1px;
+  --switch-cross-color: var(--switch-bg);
+  --switch-check-color: var(--switch-checked-bg);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-top: auto;
+}
+
+.productsExpirySwitch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.productsExpirySwitch__slider {
+  box-sizing: border-box;
+  width: var(--switch-width);
+  height: var(--switch-height);
+  background: var(--switch-bg);
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  position: relative;
+  transition: var(--switch-transition);
+}
+
+.productsExpirySwitch__slider::before {
+  content: "";
+  position: absolute;
+  width: var(--switch-effect-width);
+  height: var(--switch-effect-height);
+  left: calc(var(--switch-offset) + (var(--switch-effect-width) / 2));
+  background: var(--switch-circle-bg);
+  border-radius: var(--switch-effect-radius);
+  transition: all 0.2s ease-in-out;
+}
+
+.productsExpirySwitch__circle {
+  width: var(--switch-circle-diameter);
+  height: var(--switch-circle-diameter);
+  background: var(--switch-circle-bg);
+  border-radius: inherit;
+  box-shadow: var(--switch-circle-shadow);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  left: var(--switch-offset);
+  transition: var(--switch-transition);
+  z-index: 1;
+}
+
+.productsExpirySwitch__cross,
+.productsExpirySwitch__checkmark {
+  position: absolute;
+  height: auto;
+  transition: var(--switch-transition);
+}
+
+.productsExpirySwitch__cross {
+  width: 6px;
+  color: var(--switch-cross-color);
+}
+
+.productsExpirySwitch__checkmark {
+  width: 10px;
+  color: var(--switch-check-color);
+  transform: scale(0);
+}
+
+.productsExpirySwitch input:checked + .productsExpirySwitch__slider {
+  background: var(--switch-checked-bg);
+}
+
+.productsExpirySwitch input:checked + .productsExpirySwitch__slider .productsExpirySwitch__checkmark {
+  transform: scale(1);
+}
+
+.productsExpirySwitch input:checked + .productsExpirySwitch__slider .productsExpirySwitch__cross {
+  transform: scale(0);
+}
+
+.productsExpirySwitch input:checked + .productsExpirySwitch__slider::before {
+  left: calc(
+    100% - var(--switch-effect-width) - (var(--switch-effect-width) / 2) - var(--switch-offset)
+  );
+}
+
+.productsExpirySwitch input:checked + .productsExpirySwitch__slider .productsExpirySwitch__circle {
+  left: calc(100% - var(--switch-circle-diameter) - var(--switch-offset));
+  box-shadow: var(--switch-circle-checked-shadow);
+}
+
+.productsExpirySwitch input:focus-visible + .productsExpirySwitch__slider {
+  outline: 2px solid rgba(30, 42, 68, 0.35);
+  outline-offset: 3px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fabAddProduct {
     transition: none;
   }
 
   .productsBackLink {
+    transition: none;
+  }
+
+  .productsExpirySwitch__slider,
+  .productsExpirySwitch__slider::before,
+  .productsExpirySwitch__circle,
+  .productsExpirySwitch__cross,
+  .productsExpirySwitch__checkmark {
     transition: none;
   }
 }

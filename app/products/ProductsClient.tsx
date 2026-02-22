@@ -194,6 +194,14 @@ const searchFieldStyle: CSSProperties = {
   position: "relative",
   display: "flex",
   alignItems: "center",
+  flex: 1,
+  minWidth: 0,
+};
+
+const searchControlRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
 };
 
 const searchInputStyle: CSSProperties = {
@@ -403,6 +411,13 @@ const EMPTY_ZONES: ProductsListZone[] = [];
 const EMPTY_PRODUCTS: ProductsListProduct[] = [];
 const EMPTY_STOCK_BY_PRODUCT_ID = new Map<string, number>();
 
+type ExpiryBadge = { text: string; style: CSSProperties };
+type ListSearchUpdates = {
+  zone?: string | null;
+  q?: string;
+  imminent?: boolean;
+};
+
 function getDaysLeft(dateValue: string) {
   const parts = dateValue.split("-");
   if (parts.length !== 3) {
@@ -450,6 +465,39 @@ function normalizeZoneParam(zoneParam: string | null): string | null {
   return match ?? null;
 }
 
+function getExpiryBadge(
+  expiryDateValue: string | null | undefined,
+  expiryWarningDays: number
+): ExpiryBadge | null {
+  const expiryDate = expiryDateValue?.trim() ?? "";
+  if (!expiryDate) {
+    return null;
+  }
+  const daysLeft = getDaysLeft(expiryDate);
+  if (daysLeft === null) {
+    return null;
+  }
+  if (daysLeft < 0) {
+    return { text: "만료", style: badgeExpiredStyle };
+  }
+  if (daysLeft <= expiryWarningDays) {
+    return { text: `임박 D-${daysLeft}`, style: badgeWarningStyle };
+  }
+  return null;
+}
+
+function hasImminentBadge(
+  expiryDateValue: string | null | undefined,
+  expiryWarningDays: number
+) {
+  const expiryDate = expiryDateValue?.trim() ?? "";
+  if (!expiryDate) {
+    return false;
+  }
+  const daysLeft = getDaysLeft(expiryDate);
+  return daysLeft !== null && daysLeft >= 0 && daysLeft <= expiryWarningDays;
+}
+
 function SkeletonList() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
@@ -471,6 +519,7 @@ export default function ProductsPage() {
   const searchParams = useSearchParams();
 
   const selectedZone = normalizeZoneParam(searchParams.get("zone"));
+  const isImminentOnly = searchParams.get("imminent") === "1";
   const query = searchParams.get("q") ?? "";
   const [authState, setAuthState] = useState<AuthState>("checking");
   const productsList = useProductsListData({
@@ -496,9 +545,7 @@ export default function ProductsPage() {
   const [isComposing, setIsComposing] = useState(false);
   const isComposingRef = useRef(false);
   const prefetchedDetailHrefsRef = useRef(new Set<string>());
-  const pendingUpdatesRef = useRef<{ zone?: string | null; q?: string } | null>(
-    null
-  );
+  const pendingUpdatesRef = useRef<ListSearchUpdates | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -585,7 +632,7 @@ export default function ProductsPage() {
   const shouldApplyZone = committedQuery.length === 0;
   const activeZone = shouldApplyZone ? selectedZone : null;
 
-  const filteredProducts = useMemo(() => {
+  const searchMatchedProducts = useMemo(() => {
     if (products.length === 0) {
       return [];
     }
@@ -603,6 +650,16 @@ export default function ProductsPage() {
       return tokensMatchText(haystack, tokens);
     });
   }, [activeZone, products, tokens, zoneNameById]);
+
+  const filteredProducts = useMemo(() => {
+    if (!isImminentOnly) {
+      return searchMatchedProducts;
+    }
+
+    return searchMatchedProducts.filter((product) =>
+      hasImminentBadge(product.expiry_date, expiryWarningDays)
+    );
+  }, [expiryWarningDays, isImminentOnly, searchMatchedProducts]);
 
   const detailQuery = searchParams.toString();
   const detailQuerySuffix = detailQuery ? `?${detailQuery}` : "";
@@ -690,7 +747,7 @@ export default function ProductsPage() {
   const settingsHref = detailQuery ? `/settings?${detailQuery}` : "/settings";
 
   const updateSearchParams = useCallback(
-    (updates: { zone?: string | null; q?: string }) => {
+    (updates: ListSearchUpdates) => {
       if (isComposingRef.current) {
         pendingUpdatesRef.current = {
           ...pendingUpdatesRef.current,
@@ -714,6 +771,14 @@ export default function ProductsPage() {
           nextParams.set("q", updates.q);
         } else {
           nextParams.delete("q");
+        }
+      }
+
+      if (updates.imminent !== undefined) {
+        if (updates.imminent) {
+          nextParams.set("imminent", "1");
+        } else {
+          nextParams.delete("imminent");
         }
       }
 
@@ -987,60 +1052,107 @@ export default function ProductsPage() {
                 </div>
 
                 <form onSubmit={handleSearchSubmit}>
-                  <div style={searchFieldStyle}>
-                    <input
-                      type="text"
-                      value={resolvedDraftQuery}
-                      onChange={(event) => setDraftQuery(event.currentTarget.value)}
-                      onCompositionStart={handleCompositionStart}
-                      onCompositionEnd={handleCompositionEnd}
-                      onFocus={handleSearchFocus}
-                      onBlur={handleSearchBlur}
-                      placeholder="상품명, 제조사 검색"
-                      aria-label="상품명 또는 제조사 검색"
-                      style={searchInputStyle}
-                    />
-                    <div style={searchButtonRowStyle}>
-                      {resolvedDraftQuery ? (
+                  <div style={searchControlRowStyle}>
+                    <div style={searchFieldStyle}>
+                      <input
+                        type="text"
+                        value={resolvedDraftQuery}
+                        onChange={(event) => setDraftQuery(event.currentTarget.value)}
+                        onCompositionStart={handleCompositionStart}
+                        onCompositionEnd={handleCompositionEnd}
+                        onFocus={handleSearchFocus}
+                        onBlur={handleSearchBlur}
+                        placeholder="상품명, 제조사 검색"
+                        aria-label="상품명 또는 제조사 검색"
+                        style={searchInputStyle}
+                      />
+                      <div style={searchButtonRowStyle}>
+                        {resolvedDraftQuery ? (
+                          <button
+                            type="button"
+                            style={searchIconButtonStyle}
+                            aria-label="검색어 지우기"
+                            onClick={handleClearQuery}
+                          >
+                            <svg viewBox="0 0 24 24" style={searchIconStyle}>
+                              <path
+                                d="M6 6l12 12M18 6L6 18"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          </button>
+                        ) : null}
                         <button
-                          type="button"
+                          type="submit"
                           style={searchIconButtonStyle}
-                          aria-label="검색어 지우기"
-                          onClick={handleClearQuery}
+                          aria-label="검색"
                         >
                           <svg viewBox="0 0 24 24" style={searchIconStyle}>
+                            <circle
+                              cx="11"
+                              cy="11"
+                              r="7"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              fill="none"
+                            />
                             <path
-                              d="M6 6l12 12M18 6L6 18"
+                              d="M16.5 16.5L21 21"
                               stroke="currentColor"
                               strokeWidth="2"
                               strokeLinecap="round"
                             />
                           </svg>
                         </button>
-                      ) : null}
-                      <button
-                        type="submit"
-                        style={searchIconButtonStyle}
-                        aria-label="검색"
-                      >
-                        <svg viewBox="0 0 24 24" style={searchIconStyle}>
-                          <circle
-                            cx="11"
-                            cy="11"
-                            r="7"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            fill="none"
-                          />
-                          <path
-                            d="M16.5 16.5L21 21"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      </button>
+                      </div>
                     </div>
+                    <label className="productsExpiryToggle">
+                      <span className="productsExpiryToggle__text">임박 상품만</span>
+                      <span className="productsExpirySwitch">
+                        <input
+                          type="checkbox"
+                          checked={isImminentOnly}
+                          onChange={(event) =>
+                            updateSearchParams({
+                              imminent: event.currentTarget.checked,
+                            })
+                          }
+                          aria-label="임박 상품만 보기"
+                        />
+                        <span className="productsExpirySwitch__slider">
+                          <span className="productsExpirySwitch__circle">
+                            <svg
+                              className="productsExpirySwitch__cross"
+                              viewBox="0 0 365.696 365.696"
+                              width="6"
+                              height="6"
+                              aria-hidden="true"
+                              focusable="false"
+                            >
+                              <path
+                                fill="currentColor"
+                                d="M243.188 182.86 356.32 69.726c12.5-12.5 12.5-32.766 0-45.247L341.238 9.398c-12.504-12.503-32.77-12.503-45.25 0L182.86 122.528 69.727 9.374c-12.5-12.5-32.766-12.5-45.247 0L9.375 24.457c-12.5 12.504-12.5 32.77 0 45.25l113.152 113.152L9.398 295.99c-12.503 12.503-12.503 32.769 0 45.25L24.48 356.32c12.5 12.5 32.766 12.5 45.247 0l113.132-113.132L295.99 356.32c12.503 12.5 32.769 12.5 45.25 0l15.081-15.082c12.5-12.504 12.5-32.77 0-45.25zm0 0"
+                              />
+                            </svg>
+                            <svg
+                              className="productsExpirySwitch__checkmark"
+                              viewBox="0 0 24 24"
+                              width="10"
+                              height="10"
+                              aria-hidden="true"
+                              focusable="false"
+                            >
+                              <path
+                                fill="currentColor"
+                                d="M9.707 19.121a.997.997 0 0 1-1.414 0l-5.646-5.647a1.5 1.5 0 0 1 0-2.121l.707-.707a1.5 1.5 0 0 1 2.121 0L9 14.171l9.525-9.525a1.5 1.5 0 0 1 2.121 0l.707.707a1.5 1.5 0 0 1 0 2.121z"
+                              />
+                            </svg>
+                          </span>
+                        </span>
+                      </span>
+                    </label>
                   </div>
                 </form>
                 {expiryWarningError ? (
@@ -1078,19 +1190,10 @@ export default function ProductsPage() {
                       metaParts.push(unit);
                     }
                     const metaLeft = metaParts.join(" · ");
-                    const daysLeft = expiryDate ? getDaysLeft(expiryDate) : null;
-                    let expiryBadge: { text: string; style: CSSProperties } | null =
-                      null;
-                    if (daysLeft !== null) {
-                      if (daysLeft < 0) {
-                        expiryBadge = { text: "만료", style: badgeExpiredStyle };
-                      } else if (daysLeft <= expiryWarningDays) {
-                        expiryBadge = {
-                          text: `임박 D-${daysLeft}`,
-                          style: badgeWarningStyle,
-                        };
-                      }
-                    }
+                    const expiryBadge = getExpiryBadge(
+                      expiryDate,
+                      expiryWarningDays
+                    );
                     const photoRef = product.photo_url?.trim() ?? "";
                     const photoSrc = resolveProductPhotoUrl(photoRef);
                     const hasPhoto = photoSrc.length > 0;

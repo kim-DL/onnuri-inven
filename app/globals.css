@@ -311,7 +311,6 @@ body {
   top: 6.75px;
   transform: rotate(-45deg);
 }
-
 @media (prefers-reduced-motion: reduce) {
   .fabAddProduct {
     transition: none;

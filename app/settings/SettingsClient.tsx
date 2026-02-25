@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -28,6 +28,45 @@ type UserProfileRow = {
 type UserActionState = {
   userId: string;
   type: "toggle" | "rename";
+};
+
+type InventoryCheckOverrideMode = "AUTO" | "FORCE_ON" | "FORCE_OFF";
+
+type InventoryCheckContextRpcRow = {
+  mode_enabled: boolean;
+  mode_source: string | null;
+  active_run_id: string | null;
+  active_run_started_at: string | null;
+  override_mode: string | null;
+  auto_days: number[] | null;
+};
+
+type InventoryCheckContextState = {
+  modeEnabled: boolean;
+  modeSource: string | null;
+  activeRunId: string | null;
+  activeRunStartedAt: string | null;
+  overrideMode: InventoryCheckOverrideMode;
+  autoDays: number[];
+};
+
+const INVENTORY_CHECK_DAY_OPTIONS: Array<{ value: number; label: string }> = [
+  { value: 0, label: "일" },
+  { value: 1, label: "월" },
+  { value: 2, label: "화" },
+  { value: 3, label: "수" },
+  { value: 4, label: "목" },
+  { value: 5, label: "금" },
+  { value: 6, label: "토" },
+];
+
+const DEFAULT_INVENTORY_CHECK_CONTEXT: InventoryCheckContextState = {
+  modeEnabled: false,
+  modeSource: null,
+  activeRunId: null,
+  activeRunStartedAt: null,
+  overrideMode: "AUTO",
+  autoDays: [5],
 };
 
 const pageStyle: CSSProperties = {
@@ -213,6 +252,56 @@ const compactInputStyle: CSSProperties = {
   fontSize: "14px",
 };
 
+const selectStyle: CSSProperties = {
+  ...inputStyle,
+};
+
+const dayChipRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "8px",
+};
+
+const dayChipStyle: CSSProperties = {
+  minHeight: "44px",
+  minWidth: "44px",
+  padding: "0 12px",
+  borderRadius: "999px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#D6D2CC",
+  background: "#FFFFFF",
+  color: "#2E2A27",
+  fontSize: "14px",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const dayChipActiveStyle: CSSProperties = {
+  minHeight: "44px",
+  minWidth: "44px",
+  padding: "0 12px",
+  borderRadius: "999px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "#A9EFC5",
+  background: "#ECFDF3",
+  color: "#067647",
+  fontSize: "14px",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const statusCardStyle: CSSProperties = {
+  borderRadius: "10px",
+  border: "1px solid #E8E2DB",
+  background: "#FBFAF8",
+  padding: "12px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "6px",
+};
+
 const buttonStyle: CSSProperties = {
   minHeight: "44px",
   padding: "0 16px",
@@ -308,6 +397,96 @@ function normalizeUserProfiles(
   }));
 }
 
+function normalizeInventoryCheckContext(
+  rawRows: InventoryCheckContextRpcRow[] | null
+): InventoryCheckContextState {
+  const row = rawRows?.[0];
+  if (!row) {
+    return DEFAULT_INVENTORY_CHECK_CONTEXT;
+  }
+
+  const overrideRaw = row.override_mode?.trim().toUpperCase();
+  const overrideMode: InventoryCheckOverrideMode =
+    overrideRaw === "FORCE_ON" || overrideRaw === "FORCE_OFF"
+      ? overrideRaw
+      : "AUTO";
+
+  const autoDays = Array.from(
+    new Set(
+      (row.auto_days ?? []).filter(
+        (day): day is number => Number.isInteger(day) && day >= 0 && day <= 6
+      )
+    )
+  ).sort((a, b) => a - b);
+
+  return {
+    modeEnabled: row.mode_enabled === true && Boolean(row.active_run_id),
+    modeSource: row.mode_source ?? null,
+    activeRunId: row.active_run_id ?? null,
+    activeRunStartedAt: row.active_run_started_at ?? null,
+    overrideMode,
+    autoDays,
+  };
+}
+
+function formatInventoryCheckDays(days: number[]) {
+  if (days.length === 0) {
+    return "선택 없음";
+  }
+  const labelByValue = new Map(
+    INVENTORY_CHECK_DAY_OPTIONS.map((item) => [item.value, item.label])
+  );
+  return days
+    .map((day) => labelByValue.get(day))
+    .filter((label): label is string => Boolean(label))
+    .join(", ");
+}
+
+function formatDateTimeLabel(value: string | null) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toLocaleString("ko-KR");
+}
+
+function getRpcErrorText(error: unknown) {
+  if (!error) {
+    return "";
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === "object") {
+    const maybeError = error as {
+      message?: unknown;
+      details?: unknown;
+      hint?: unknown;
+      code?: unknown;
+      error_description?: unknown;
+    };
+    const parts = [
+      maybeError.message,
+      maybeError.details,
+      maybeError.hint,
+      maybeError.code,
+      maybeError.error_description,
+    ].filter((value): value is string => typeof value === "string" && value.length > 0);
+    return parts.join(" | ");
+  }
+
+  return String(error);
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -340,6 +519,17 @@ export default function SettingsPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [checkModeState, setCheckModeState] = useState<DataState>("idle");
+  const [checkContext, setCheckContext] = useState<InventoryCheckContextState>(
+    DEFAULT_INVENTORY_CHECK_CONTEXT
+  );
+  const [checkOverrideDraft, setCheckOverrideDraft] =
+    useState<InventoryCheckOverrideMode>("AUTO");
+  const [checkDaysDraft, setCheckDaysDraft] = useState<number[]>([5]);
+  const [checkModeError, setCheckModeError] = useState<string | null>(null);
+  const [checkModeSuccess, setCheckModeSuccess] = useState<string | null>(null);
+  const [isCheckModeSaving, setIsCheckModeSaving] = useState(false);
+  const [isEndingCheckRun, setIsEndingCheckRun] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -417,6 +607,62 @@ export default function SettingsPage() {
     };
   }, [router]);
 
+  const loadInventoryCheckContext = useCallback(async () => {
+    setCheckModeState("loading");
+    setCheckModeError(null);
+
+    const { data, error } = await supabase.rpc("get_inventory_check_context");
+    if (error) {
+      console.error("Failed to fetch inventory check context", error);
+      const lowered = getRpcErrorText(error).toLowerCase();
+      if (
+        lowered.includes("function") && lowered.includes("does not exist")
+      ) {
+        setCheckModeError("DB 함수가 최신이 아니에요. SQL 패치를 다시 적용해 주세요.");
+      } else if (
+        lowered.includes("relation") && lowered.includes("does not exist")
+      ) {
+        setCheckModeError("DB 테이블이 최신이 아니에요. SQL 패치를 다시 적용해 주세요.");
+      } else if (
+        lowered.includes("not authenticated") ||
+        lowered.includes("jwt") ||
+        lowered.includes("token")
+      ) {
+        setCheckModeError("세션이 만료되었어요. 다시 로그인해 주세요.");
+      } else if (lowered.includes("admin only")) {
+        setCheckModeError("관리자만 접근할 수 있어요.");
+      } else {
+        setCheckModeError("점검 모드 설정을 불러오지 못했어요.");
+      }
+
+      setCheckModeState("error");
+      return null;
+    }
+
+    const normalized = normalizeInventoryCheckContext(
+      data as InventoryCheckContextRpcRow[] | null
+    );
+    setCheckContext(normalized);
+    setCheckOverrideDraft(normalized.overrideMode);
+    setCheckDaysDraft(normalized.autoDays);
+    setCheckModeState("ready");
+    return normalized;
+  }, []);
+
+  useEffect(() => {
+    if (authState !== "authed") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void loadInventoryCheckContext();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [authState, loadInventoryCheckContext]);
+
   useEffect(() => {
     if (authState !== "authed" || profileRole !== "admin") {
       return;
@@ -476,6 +722,23 @@ export default function SettingsPage() {
   const isUserMutating = userActionState !== null;
   const isUserListLoading =
     userListState === "idle" || userListState === "loading";
+  const isCheckModeLoading =
+    checkModeState === "idle" || checkModeState === "loading";
+  const isCheckModeMutating = isCheckModeSaving || isEndingCheckRun;
+  const checkAutoDaysLabel = formatInventoryCheckDays(checkContext.autoDays);
+  const activeRunStartedLabel = formatDateTimeLabel(checkContext.activeRunStartedAt);
+  const checkModeSourceLabel = (() => {
+    if (checkContext.modeSource === "FORCE_ON") {
+      return "강제 ON";
+    }
+    if (checkContext.modeSource === "FORCE_OFF") {
+      return "강제 OFF";
+    }
+    if (checkContext.modeSource === "AUTO") {
+      return "AUTO(요일 기반)";
+    }
+    return "없음";
+  })();
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -530,6 +793,131 @@ export default function SettingsPage() {
     setSaveSuccess("저장했어요.");
     setIsSaving(false);
     void expiryWarning.refetch();
+  };
+
+  const handleToggleCheckDay = (day: number) => {
+    setCheckDaysDraft((prev) => {
+      if (prev.includes(day)) {
+        return prev.filter((value) => value !== day);
+      }
+      return [...prev, day].sort((a, b) => a - b);
+    });
+  };
+
+  const handleSaveInventoryCheckMode = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!isAdmin || isCheckModeSaving) {
+      return;
+    }
+
+    setCheckModeError(null);
+    setCheckModeSuccess(null);
+    setIsCheckModeSaving(true);
+
+    const normalizedDays = Array.from(
+      new Set(checkDaysDraft.filter((day) => day >= 0 && day <= 6))
+    ).sort((a, b) => a - b);
+    const rpcDays = checkOverrideDraft === "AUTO" ? normalizedDays : null;
+
+    const { data, error } = await supabase.rpc("set_inventory_check_mode_settings", {
+      p_override_mode: checkOverrideDraft,
+      p_auto_days: rpcDays,
+    });
+
+    if (error) {
+      console.error("Failed to save inventory check mode settings", error);
+
+      const lowered = getRpcErrorText(error).toLowerCase();
+      if (lowered.includes("not authenticated")) {
+        setCheckModeError("세션이 만료되었어요. 다시 로그인해 주세요.");
+      } else if (lowered.includes("inactive user")) {
+        setCheckModeError("권한이 없어요.");
+      } else if (lowered.includes("admin only")) {
+        setCheckModeError("관리자만 변경할 수 있어요.");
+      } else if (lowered.includes("invalid override mode")) {
+        setCheckModeError("오버라이드 모드를 확인해 주세요.");
+      } else if (lowered.includes("function") && lowered.includes("does not exist")) {
+        setCheckModeError(
+          "DB 함수가 최신이 아니에요. SQL 패치를 다시 적용해 주세요."
+        );
+      } else if (
+        lowered.includes("relation") &&
+        lowered.includes("does not exist")
+      ) {
+        setCheckModeError("DB 테이블이 최신이 아니에요. SQL 패치를 확인해 주세요.");
+      } else if (
+        lowered.includes("permission denied") ||
+        lowered.includes("insufficient privilege") ||
+        lowered.includes("42501")
+      ) {
+        setCheckModeError(
+          "DB 권한 패치가 필요해요. inventory_check_mode_settings 쓰기 권한 패치를 적용해 주세요."
+        );
+      } else {
+        setCheckModeError("점검 모드 저장에 실패했어요.");
+      }
+      setIsCheckModeSaving(false);
+      return;
+    }
+
+    const nextContext = normalizeInventoryCheckContext(
+      data as InventoryCheckContextRpcRow[] | null
+    );
+    setCheckContext(nextContext);
+    setCheckOverrideDraft(nextContext.overrideMode);
+    setCheckDaysDraft(nextContext.autoDays);
+    setCheckModeState("ready");
+    setCheckModeSuccess("점검 모드 설정을 저장했어요.");
+    setIsCheckModeSaving(false);
+  };
+
+  const handleEndActiveCheckRun = async () => {
+    if (!isAdmin || isEndingCheckRun) {
+      return;
+    }
+
+    setCheckModeError(null);
+    setCheckModeSuccess(null);
+    setIsEndingCheckRun(true);
+
+    const { data, error } = await supabase.rpc("end_active_inventory_check_run");
+
+    if (error) {
+      console.error("Failed to end active inventory check run", {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+      });
+      const message = error?.message?.toLowerCase() ?? "";
+      if (message.includes("not authenticated")) {
+        setCheckModeError("세션이 만료되었어요. 다시 로그인해 주세요.");
+      } else if (message.includes("inactive user")) {
+        setCheckModeError("권한이 없어요.");
+      } else if (message.includes("admin only")) {
+        setCheckModeError("관리자만 종료할 수 있어요.");
+      } else {
+        setCheckModeError("점검 회차 종료에 실패했어요.");
+      }
+      setIsEndingCheckRun(false);
+      return;
+    }
+
+    const ended =
+      data === true ||
+      (Array.isArray(data) &&
+        data.length > 0 &&
+        typeof data[0] === "object" &&
+        data[0] !== null &&
+        "end_active_inventory_check_run" in data[0] &&
+        (data[0] as { end_active_inventory_check_run?: boolean })
+          .end_active_inventory_check_run === true);
+    await loadInventoryCheckContext();
+    setCheckModeSuccess(
+      ended ? "활성 점검 회차를 종료했어요." : "종료할 활성 회차가 없어요."
+    );
+    setIsEndingCheckRun(false);
   };
 
   const handleToggleUserActive = async (profile: UserProfileRow) => {
@@ -873,6 +1261,103 @@ export default function SettingsPage() {
                   <p style={helperTextStyle}>관리자만 변경할 수 있어요.</p>
                 )}
               </form>
+            </div>
+            <div style={cardStyle}>
+              <h2 style={cardTitleStyle}>재고 점검 모드 관리</h2>
+              {isCheckModeLoading ? (
+                <p style={helperTextStyle}>점검 모드 정보를 불러오는 중...</p>
+              ) : checkModeState === "error" ? (
+                <p style={helperTextStyle}>
+                  {checkModeError ?? "점검 모드 정보를 불러오지 못했어요."}
+                </p>
+              ) : (
+                <>
+                  <div style={statusCardStyle}>
+                    <p style={helperTextStyle}>
+                      현재 상태: {checkContext.modeEnabled ? "활성화" : "비활성화"}
+                    </p>
+                    <p style={helperTextStyle}>모드 소스: {checkModeSourceLabel}</p>
+                    <p style={helperTextStyle}>AUTO 요일: {checkAutoDaysLabel}</p>
+                    {activeRunStartedLabel ? (
+                      <p style={helperTextStyle}>
+                        활성 회차 시작: {activeRunStartedLabel}
+                      </p>
+                    ) : null}
+                  </div>
+                  <form
+                    onSubmit={handleSaveInventoryCheckMode}
+                    style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+                  >
+                    <div style={fieldStyle}>
+                      <label htmlFor="inventory-check-override" style={labelStyle}>
+                        오버라이드 모드
+                      </label>
+                      <select
+                        id="inventory-check-override"
+                        value={checkOverrideDraft}
+                        onChange={(event) =>
+                          setCheckOverrideDraft(
+                            event.currentTarget.value as InventoryCheckOverrideMode
+                          )
+                        }
+                        style={selectStyle}
+                        disabled={!isAdmin || isCheckModeMutating}
+                      >
+                        <option value="AUTO">AUTO</option>
+                        <option value="FORCE_ON">FORCE ON</option>
+                        <option value="FORCE_OFF">FORCE OFF</option>
+                      </select>
+                    </div>
+                    <div style={fieldStyle}>
+                      <p style={labelStyle}>AUTO 점검 요일</p>
+                      <div style={dayChipRowStyle}>
+                        {INVENTORY_CHECK_DAY_OPTIONS.map((item) => {
+                          const isSelected = checkDaysDraft.includes(item.value);
+                          return (
+                            <button
+                              key={item.value}
+                              type="button"
+                              style={isSelected ? dayChipActiveStyle : dayChipStyle}
+                              onClick={() => handleToggleCheckDay(item.value)}
+                              disabled={!isAdmin || isCheckModeMutating}
+                              aria-pressed={isSelected}
+                            >
+                              {item.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {checkModeError ? (
+                      <p style={helperTextStyle}>{checkModeError}</p>
+                    ) : null}
+                    {checkModeSuccess ? (
+                      <p style={helperTextStyle}>{checkModeSuccess}</p>
+                    ) : null}
+                    {isAdmin ? (
+                      <>
+                        <button
+                          type="submit"
+                          style={buttonStyle}
+                          disabled={isCheckModeMutating}
+                        >
+                          {isCheckModeSaving ? "저장 중..." : "점검 모드 저장"}
+                        </button>
+                        <button
+                          type="button"
+                          style={secondaryButtonStyle}
+                          onClick={handleEndActiveCheckRun}
+                          disabled={isCheckModeMutating || !checkContext.activeRunId}
+                        >
+                          {isEndingCheckRun ? "종료 중..." : "활성 점검 회차 종료"}
+                        </button>
+                      </>
+                    ) : (
+                      <p style={helperTextStyle}>관리자만 변경할 수 있어요.</p>
+                    )}
+                  </form>
+                </>
+              )}
             </div>
             <div style={cardStyle}>
               <h2 style={cardTitleStyle}>User Management</h2>

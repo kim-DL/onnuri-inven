@@ -16,7 +16,10 @@ import {
 import { resizeImageForUpload } from "@/lib/resizeImageForUpload";
 import { supabase } from "@/lib/supabaseClient";
 import { useExpiryWarningDays } from "@/lib/useExpiryWarningDays";
-import { invalidateProductsListDataCache } from "@/lib/useProductsListData";
+import {
+  invalidateProductsListDataCache,
+  markProductCheckedOptimistic,
+} from "@/lib/useProductsListData";
 
 type Product = {
   id: string;
@@ -50,11 +53,12 @@ type InventoryLog = {
   actor_name?: string | null;
   created_by?: string | null;
   note?: string | null;
+  check_run_id?: string | null;
 };
 
 type AdjustMode = "in" | "out" | "adjust";
-type LogType = "in" | "out" | "adjust";
-type ActionTone = "in" | "out";
+type LogType = "in" | "out" | "adjust" | "check";
+type ActionTone = "in" | "out" | "adjust";
 
 type AuthState = "checking" | "authed" | "blocked" | "error";
 type DataState = "idle" | "loading" | "ready" | "error";
@@ -435,19 +439,47 @@ const actionButtonStyle: CSSProperties = {
   transform: "translateY(0)",
 };
 
-const actionButtonAltStyle: CSSProperties = {
+const checkButtonStyle: CSSProperties = {
   ...buttonStyle,
   width: "100%",
   background: "#FFFFFF",
-  color: "#2E2A27",
-  border: "1px solid #D6D2CC",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 2px rgba(0,0,0,0.04)",
-  transition: OUTLINE_TRANSITION,
+  color: "#067647",
+  border: "1px solid #A9EFC5",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(0,0,0,0.04)",
+  transition:
+    "transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease, border-color 140ms ease",
   transform: "translateY(0)",
 };
 
+const checkButtonDoneStyle: CSSProperties = {
+  background: "#067647",
+  color: "#FFFFFF",
+  border: "1px solid #067647",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.2)",
+};
+
+const toastWrapStyle: CSSProperties = {
+  position: "fixed",
+  left: "50%",
+  bottom: "calc(20px + env(safe-area-inset-bottom))",
+  transform: "translateX(-50%)",
+  zIndex: 65,
+  pointerEvents: "none",
+};
+
+const toastStyle: CSSProperties = {
+  borderRadius: "999px",
+  border: "1px solid #CFE2FF",
+  background: "#EEF4FF",
+  color: "#25436A",
+  padding: "10px 14px",
+  fontSize: "13px",
+  fontWeight: 600,
+  boxShadow: "0 6px 14px rgba(37, 67, 106, 0.16)",
+};
+
 const ACTION_TONE_STYLES: Record<
-  "in" | "out",
+  ActionTone,
   { text: string; hover: string; pressed: string }
 > = {
   in: {
@@ -459,6 +491,11 @@ const ACTION_TONE_STYLES: Record<
     text: "#9B2C2C",
     hover: "rgba(155, 44, 44, 0.12)",
     pressed: "rgba(155, 44, 44, 0.22)",
+  },
+  adjust: {
+    text: "#1D4E89",
+    hover: "rgba(29, 78, 137, 0.12)",
+    pressed: "rgba(29, 78, 137, 0.22)",
   },
 };
 
@@ -660,16 +697,21 @@ const LOG_TYPE_LABELS: Record<LogType, string> = {
   in: "입고",
   out: "출고",
   adjust: "조정",
+  check: "재고 확인",
 };
 
 const LOG_TYPE_BORDER_COLORS: Record<LogType, string> = {
   in: "#16A34A",
   out: "#DC2626",
   adjust: "#64748B",
+  check: "#3B82F6",
 };
 
 function getLogType(log: InventoryLog): LogType {
   const note = log.note?.trim().toUpperCase();
+  if (note === "CHECK_OK") {
+    return "check";
+  }
   if (note === "ADJUST") {
     return "adjust";
   }
@@ -684,10 +726,21 @@ function getLogType(log: InventoryLog): LogType {
 
 function formatLogTitle(log: InventoryLog) {
   const type = getLogType(log);
+  if (type === "check") {
+    return "재고 확인 (변동 없음)";
+  }
   if (type === "adjust") {
     return LOG_TYPE_LABELS.adjust;
   }
   return `${LOG_TYPE_LABELS[type]} ${formatDelta(log.delta)}`;
+}
+
+function formatLogValue(log: InventoryLog) {
+  const type = getLogType(log);
+  if (type === "check") {
+    return `현재 수량 : ${log.after_stock}`;
+  }
+  return `${log.before_stock} → ${log.after_stock}`;
 }
 
 function formatTimestamp(raw: string) {
@@ -727,6 +780,26 @@ function getAdjustErrorMessage(error: unknown) {
   }
 
   return "재고 조정에 실패했어요.";
+}
+
+function getCheckConfirmErrorMessage(error: unknown) {
+  const message =
+    typeof error === "object" && error && "message" in error
+      ? String((error as { message?: string }).message ?? "")
+      : "";
+  const lowered = message.toLowerCase();
+
+  if (lowered.includes("check mode inactive")) {
+    return "점검 모드가 비활성화되어 있어요.";
+  }
+  if (lowered.includes("not authenticated")) {
+    return "세션이 만료되었어요. 다시 로그인해 주세요.";
+  }
+  if (lowered.includes("inactive user")) {
+    return "권한이 없어요.";
+  }
+
+  return "재고 확인에 실패했어요.";
 }
 
 function normalizeOptional(value: string) {
@@ -855,6 +928,10 @@ export default function ProductDetailPage() {
     string | null
   >(null);
   const [isAdjusting, setIsAdjusting] = useState(false);
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
+  const [isCheckFeedbackActive, setIsCheckFeedbackActive] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [actionHover, setActionHover] = useState<ActionTone | null>(null);
   const [actionPressed, setActionPressed] = useState<ActionTone | null>(null);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
@@ -873,11 +950,27 @@ export default function ProductDetailPage() {
   const queryString = searchParams.toString();
   const backHref = queryString ? `/products?${queryString}` : "/products";
 
+  useEffect(() => {
+    if (!isCheckFeedbackActive && !toastMessage) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setIsCheckFeedbackActive(false);
+      setToastMessage(null);
+    }, 1000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isCheckFeedbackActive, toastMessage]);
+
   const openAdjustModal = (mode: AdjustMode) => {
     setAdjustMode(mode);
     setAdjustQty("");
     setAdjustError(null);
     setAdjustValidationError(null);
+    setCheckError(null);
   };
 
   const getActionBackground = (tone: ActionTone) => {
@@ -890,6 +983,14 @@ export default function ProductDetailPage() {
     }
     return "transparent";
   };
+
+  const getActionButtonStyle = (tone: ActionTone): CSSProperties => ({
+    ...actionButtonStyle,
+    color: ACTION_TONE_STYLES[tone].text,
+    background: getActionBackground(tone),
+    boxShadow: actionPressed === tone ? OUTLINE_PRESSED_SHADOW : OUTLINE_DEPTH,
+    transform: actionPressed === tone ? "translateY(1px)" : "translateY(0)",
+  });
 
   const clearActionStates = (tone: ActionTone) => {
     setActionHover((prev) => (prev === tone ? null : prev));
@@ -1642,6 +1743,7 @@ export default function ProductDetailPage() {
 
     setAdjustValidationError(null);
     setAdjustError(null);
+    setCheckError(null);
     setIsAdjusting(true);
 
     if (isAdjust) {
@@ -1658,6 +1760,7 @@ export default function ProductDetailPage() {
         return;
       }
 
+      markProductCheckedOptimistic(productId);
       invalidateProductsListDataCache();
       const refreshed = await refreshInventoryAndLogs(productId);
       setIsAdjusting(false);
@@ -1666,7 +1769,7 @@ export default function ProductDetailPage() {
       setAdjustValidationError(null);
 
       if (!refreshed) {
-        setAdjustError("?ш퀬 ?뺣낫瑜?媛깆떊?섏? 紐삵뻽?댁슂.");
+        setAdjustError("재고 정보를 갱신하지 못했어요.");
       }
       return;
     }
@@ -1701,6 +1804,7 @@ export default function ProductDetailPage() {
       return;
     }
 
+    markProductCheckedOptimistic(productId);
     invalidateProductsListDataCache();
     const refreshed = await refreshInventoryAndLogs(productId);
     setIsAdjusting(false);
@@ -1710,6 +1814,39 @@ export default function ProductDetailPage() {
 
     if (!refreshed) {
       setAdjustError("재고 정보를 갱신하지 못했어요.");
+    }
+  };
+
+  const handleCheckConfirm = async () => {
+    if (!hasValidId || !productId) {
+      setCheckError("재고 확인에 실패했어요.");
+      return;
+    }
+
+    setCheckError(null);
+    setAdjustError(null);
+    setIsChecking(true);
+
+    const { error } = await supabase.rpc("mark_inventory_checked", {
+      p_product_id: productId,
+    });
+
+    if (error) {
+      console.error("Failed to mark inventory checked", error);
+      setCheckError(getCheckConfirmErrorMessage(error));
+      setIsChecking(false);
+      return;
+    }
+
+    markProductCheckedOptimistic(productId);
+    invalidateProductsListDataCache();
+    const refreshed = await refreshInventoryAndLogs(productId);
+    setIsChecking(false);
+    setIsCheckFeedbackActive(true);
+    setToastMessage("재고가 확인되었습니다.");
+
+    if (!refreshed) {
+      setCheckError("재고 정보를 갱신하지 못했어요.");
     }
   };
 
@@ -1771,6 +1908,8 @@ export default function ProductDetailPage() {
     }
     router.replace("/login");
   };
+
+  const isStockActionPending = isAdjusting || isChecking;
 
   return (
     <div style={pageStyle}>
@@ -1921,7 +2060,7 @@ export default function ProductDetailPage() {
                     onTouchStart={() => setActionPressed("in")}
                     onTouchEnd={() => releaseActionPressed("in")}
                     onTouchCancel={() => releaseActionPressed("in")}
-                    disabled={isAdjusting}
+                    disabled={isStockActionPending}
                   >
                     입고
                   </button>
@@ -1948,19 +2087,39 @@ export default function ProductDetailPage() {
                     onTouchStart={() => setActionPressed("out")}
                     onTouchEnd={() => releaseActionPressed("out")}
                     onTouchCancel={() => releaseActionPressed("out")}
-                    disabled={isAdjusting}
+                    disabled={isStockActionPending}
                   >
                     출고
                   </button>
                 </div>
-                <button
-                  type="button"
-                  style={actionButtonAltStyle}
-                  onClick={() => openAdjustModal("adjust")}
-                  disabled={isAdjusting}
-                >
-                  조정
-                </button>
+                <div style={actionRowStyle}>
+                  <button
+                    type="button"
+                    style={getActionButtonStyle("adjust")}
+                    onClick={() => openAdjustModal("adjust")}
+                    onMouseEnter={() => setActionHover("adjust")}
+                    onMouseLeave={() => clearActionStates("adjust")}
+                    onMouseDown={() => setActionPressed("adjust")}
+                    onMouseUp={() => releaseActionPressed("adjust")}
+                    onTouchStart={() => setActionPressed("adjust")}
+                    onTouchEnd={() => releaseActionPressed("adjust")}
+                    onTouchCancel={() => releaseActionPressed("adjust")}
+                    disabled={isStockActionPending}
+                  >
+                    조정
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      ...checkButtonStyle,
+                      ...(isCheckFeedbackActive ? checkButtonDoneStyle : null),
+                    }}
+                    onClick={handleCheckConfirm}
+                    disabled={isStockActionPending}
+                  >
+                    {isCheckFeedbackActive ? "확인 완료" : "✅ 수량 일치"}
+                  </button>
+                </div>
                 <div style={actionRowStyle}>
                   <button
                     type="button"
@@ -1982,6 +2141,8 @@ export default function ProductDetailPage() {
               </div>
               {adjustMode ? null : adjustError ? (
                 <p style={helperTextStyle}>{adjustError}</p>
+              ) : checkError ? (
+                <p style={helperTextStyle}>{checkError}</p>
               ) : null}
             </div>
 
@@ -2006,9 +2167,7 @@ export default function ProductDetailPage() {
                         <span style={logActorStyle}>{getActorLabel(log)}</span>
                       </p>
                       <p style={logTypeLineStyle}>{formatLogTitle(log)}</p>
-                      <p style={logValueStyle}>
-                        {log.before_stock} → {log.after_stock}
-                      </p>
+                      <p style={logValueStyle}>{formatLogValue(log)}</p>
                     </div>
                   ))}
                 </div>
@@ -2356,6 +2515,11 @@ export default function ProductDetailPage() {
                 </button>
               </div>
             </div>
+          </div>
+        ) : null}
+        {toastMessage ? (
+          <div style={toastWrapStyle} role="status" aria-live="polite">
+            <div style={toastStyle}>{toastMessage}</div>
           </div>
         ) : null}
       </div>

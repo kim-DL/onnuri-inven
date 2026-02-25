@@ -12,6 +12,7 @@ import { resolveProductPhotoUrl } from "@/lib/productPhoto";
 import { useExpiryWarningDays } from "@/lib/useExpiryWarningDays";
 import {
   useProductsListData,
+  type InventoryCheckContext,
   type ProductsListProduct,
   type ProductsListZone,
 } from "@/lib/useProductsListData";
@@ -262,6 +263,17 @@ const cardStyle: CSSProperties = {
   gap: "8px",
 };
 
+const cardCheckPendingStyle: CSSProperties = {
+  borderWidth: "2px",
+  borderColor: "#F59E0B",
+};
+
+const cardCheckDoneStyle: CSSProperties = {
+  borderWidth: "2px",
+  borderColor: "#16A34A",
+  background: "#F8FFF8",
+};
+
 const cardContentStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "64px minmax(0, 1fr)",
@@ -425,12 +437,22 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const EMPTY_ZONES: ProductsListZone[] = [];
 const EMPTY_PRODUCTS: ProductsListProduct[] = [];
 const EMPTY_STOCK_BY_PRODUCT_ID = new Map<string, number>();
+const EMPTY_CHECKED_PRODUCT_IDS = new Set<string>();
+const EMPTY_CHECK_CONTEXT: InventoryCheckContext = {
+  modeEnabled: false,
+  modeSource: null,
+  activeRunId: null,
+  activeRunStartedAt: null,
+  overrideMode: "AUTO",
+  autoDays: [],
+};
 
 type ExpiryBadge = { text: string; style: CSSProperties };
 type ListSearchUpdates = {
   zone?: string | null;
   q?: string;
   imminent?: boolean;
+  remaining?: boolean;
 };
 
 function getDaysLeft(dateValue: string) {
@@ -510,7 +532,7 @@ function hasImminentBadge(
     return false;
   }
   const daysLeft = getDaysLeft(expiryDate);
-  return daysLeft !== null && daysLeft >= 0 && daysLeft <= expiryWarningDays;
+  return daysLeft !== null && daysLeft <= expiryWarningDays;
 }
 
 function SkeletonList() {
@@ -535,11 +557,13 @@ export default function ProductsPage() {
 
   const selectedZone = normalizeZoneParam(searchParams.get("zone"));
   const isImminentOnly = searchParams.get("imminent") === "1";
+  const isRemainingOnly = searchParams.get("remaining") === "1";
   const query = searchParams.get("q") ?? "";
   const [authState, setAuthState] = useState<AuthState>("checking");
   const productsList = useProductsListData({
     enabled: authState === "authed",
   });
+  const refetchProductsList = productsList.refetch;
   const dataState = authState === "authed" ? productsList.status : "idle";
   const zones = authState === "authed" ? productsList.zones : EMPTY_ZONES;
   const products =
@@ -548,6 +572,13 @@ export default function ProductsPage() {
     authState === "authed"
       ? productsList.stockByProductId
       : EMPTY_STOCK_BY_PRODUCT_ID;
+  const checkContext =
+    authState === "authed" ? productsList.checkContext : EMPTY_CHECK_CONTEXT;
+  const checkedProductIds =
+    authState === "authed"
+      ? productsList.checkedProductIds
+      : EMPTY_CHECKED_PRODUCT_IDS;
+  const isCheckModeEnabled = checkContext.modeEnabled;
   const expiryWarning = useExpiryWarningDays({
     enabled: authState === "authed",
   });
@@ -630,6 +661,30 @@ export default function ProductsPage() {
     };
   }, [router]);
 
+  useEffect(() => {
+    if (authState !== "authed") {
+      return;
+    }
+
+    const refetchLatest = () => {
+      void refetchProductsList();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refetchLatest();
+      }
+    };
+
+    window.addEventListener("focus", refetchLatest);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", refetchLatest);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [authState, refetchProductsList]);
+
   const zoneNameById = useMemo(() => {
     const map = new Map<string, string>();
     zones.forEach((zone) => {
@@ -676,6 +731,26 @@ export default function ProductsPage() {
     );
   }, [expiryWarningDays, isImminentOnly, searchMatchedProducts]);
 
+  const remainingProductsCount = useMemo(() => {
+    if (!isCheckModeEnabled) {
+      return 0;
+    }
+
+    return filteredProducts.filter(
+      (product) => !checkedProductIds.has(product.id)
+    ).length;
+  }, [checkedProductIds, filteredProducts, isCheckModeEnabled]);
+
+  const visibleProducts = useMemo(() => {
+    if (!isRemainingOnly || !isCheckModeEnabled) {
+      return filteredProducts;
+    }
+
+    return filteredProducts.filter((product) => !checkedProductIds.has(product.id));
+  }, [checkedProductIds, filteredProducts, isCheckModeEnabled, isRemainingOnly]);
+
+  const isRemainingFilterDisabled = isRemainingOnly && !isCheckModeEnabled;
+
   const detailQuery = searchParams.toString();
   const detailQuerySuffix = detailQuery ? `?${detailQuery}` : "";
 
@@ -684,7 +759,7 @@ export default function ProductsPage() {
       return;
     }
 
-    const candidateHrefs = filteredProducts
+    const candidateHrefs = visibleProducts
       .slice(0, DETAIL_PREFETCH_LIMIT)
       .map((product) => `/products/${product.id}${detailQuerySuffix}`);
 
@@ -741,7 +816,7 @@ export default function ProductsPage() {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [authState, dataState, detailQuerySuffix, filteredProducts, router]);
+  }, [authState, dataState, detailQuerySuffix, router, visibleProducts]);
 
   const isLoading =
     authState === "checking" ||
@@ -760,6 +835,9 @@ export default function ProductsPage() {
     ? `/products/archived?${detailQuery}`
     : "/products/archived";
   const settingsHref = detailQuery ? `/settings?${detailQuery}` : "/settings";
+  const remainingMenuLabel = isRemainingOnly
+    ? "전체 상품 목록"
+    : "재고 점검 잔여 목록";
 
   const updateSearchParams = useCallback(
     (updates: ListSearchUpdates) => {
@@ -794,6 +872,14 @@ export default function ProductsPage() {
           nextParams.set("imminent", "1");
         } else {
           nextParams.delete("imminent");
+        }
+      }
+
+      if (updates.remaining !== undefined) {
+        if (updates.remaining) {
+          nextParams.set("remaining", "1");
+        } else {
+          nextParams.delete("remaining");
         }
       }
 
@@ -876,6 +962,15 @@ export default function ProductsPage() {
     router.replace("/login");
   };
 
+  const handleToggleRemainingOnly = () => {
+    const nextRemainingOnly = !isRemainingOnly;
+    setIsMenuOpen(false);
+    updateSearchParams({ remaining: nextRemainingOnly });
+    if (authState === "authed") {
+      void productsList.refetch();
+    }
+  };
+
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const nextQuery = resolvedDraftQuery.trim();
@@ -913,7 +1008,7 @@ export default function ProductsPage() {
 
   const handleExportCsv = () => {
     const headers = ["product_name", "zone", "manufacturer", "stock", "expiry_date"];
-    const rows = filteredProducts.map((product) => {
+    const rows = visibleProducts.map((product) => {
       const zoneName = product.zone_id
         ? zoneNameById.get(product.zone_id)
         : null;
@@ -1005,6 +1100,13 @@ export default function ProductsPage() {
                       >
                         비활성화 목록
                       </Link>
+                      <button
+                        type="button"
+                        style={menuItemStyle}
+                        onClick={handleToggleRemainingOnly}
+                      >
+                        {remainingMenuLabel}
+                      </button>
                       <div style={menuDividerStyle} />
                       <button
                         type="button"
@@ -1187,6 +1289,16 @@ export default function ProductsPage() {
                 {expiryWarningError ? (
                   <p style={helperTextStyle}>{expiryWarningError}</p>
                 ) : null}
+                {isCheckModeEnabled ? (
+                  <p style={helperTextStyle}>
+                    재고 점검 모드 활성화 중 · 미점검 {remainingProductsCount}개
+                  </p>
+                ) : null}
+                {isRemainingFilterDisabled ? (
+                  <p style={helperTextStyle}>
+                    점검 모드가 비활성화되어 있어 잔여 목록 필터를 적용할 수 없어요.
+                  </p>
+                ) : null}
               </div>
 
               {hasError ? (
@@ -1199,13 +1311,17 @@ export default function ProductsPage() {
                 <DelayedRender active={shouldShowListSkeleton} ms={150}>
                   <SkeletonList />
                 </DelayedRender>
-              ) : filteredProducts.length === 0 ? (
+              ) : visibleProducts.length === 0 ? (
                 <div style={cardStyle}>
-                  <p style={helperTextStyle}>조건에 맞는 상품이 없어요.</p>
+                  <p style={helperTextStyle}>
+                    {isRemainingOnly && isCheckModeEnabled
+                      ? "미점검 상품이 없어요."
+                      : "조건에 맞는 상품이 없어요."}
+                  </p>
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                  {filteredProducts.map((product) => {
+                  {visibleProducts.map((product) => {
                     const zoneName = product.zone_id
                       ? zoneNameById.get(product.zone_id)
                       : null;
@@ -1227,6 +1343,7 @@ export default function ProductsPage() {
                     const photoSrc = resolveProductPhotoUrl(photoRef);
                     const hasPhoto = photoSrc.length > 0;
                     const detailHref = `/products/${product.id}${detailQuerySuffix}`;
+                    const isChecked = checkedProductIds.has(product.id);
                     return (
                       <Link
                         key={product.id}
@@ -1237,7 +1354,16 @@ export default function ProductsPage() {
                           textDecoration: "none",
                         }}
                       >
-                        <div style={cardStyle}>
+                        <div
+                          style={{
+                            ...cardStyle,
+                            ...(isCheckModeEnabled
+                              ? isChecked
+                                ? cardCheckDoneStyle
+                                : cardCheckPendingStyle
+                              : null),
+                          }}
+                        >
                           <div style={cardContentStyle}>
                             <div style={thumbnailStyle}>
                               <span style={thumbnailPlaceholderStyle}>사진</span>
